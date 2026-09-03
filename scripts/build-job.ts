@@ -38,7 +38,7 @@ async function main() {
 
   const content = new ContentClient(resolve(ROOT, "data/cache/content"));
   const spec = {
-    slug: "job", name: "Job", base: "/scriptures/ot", order: 18, partKey: "ot",
+    slug: "job", name: "Job", abbrev: "Job", base: "/scriptures/ot", order: 18, partKey: "ot",
   };
   const result = await assembleScriptureBook(job, spec, content);
   const part = buildScripturePart("ot", "Old Testament", [{ spec, result }]);

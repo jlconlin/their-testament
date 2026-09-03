@@ -36,6 +36,7 @@ export function mergeTagIndex(entries: TagEntry[]): TagIndexEntry[] {
 export interface BookSpec {
   slug: string;       // "job"
   name: string;       // "Job"
+  abbrev?: string;    // "1 Cor."  — official abbreviation, for the tag index
   base: string;       // "/scriptures/ot"
   order: number;      // canonical position (for the index sort)
   partKey: string;    // "ot"
@@ -103,7 +104,7 @@ export async function assembleScriptureBook(
       const v = Number(ref.split(":")[1]);
       tagEntries.push({
         tag,
-        label: `${spec.name} ${ref}`,
+        label: `${spec.abbrev ?? spec.name} ${ref}`, // "1 Cor. 13:4", "D&C 76:22"
         key: `${spec.partKey}|${chapter}|${ref}`,
         sort: [spec.order, chapter, v || 0],
       });

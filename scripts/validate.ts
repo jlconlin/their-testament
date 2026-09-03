@@ -8,7 +8,7 @@ import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex, type TagEntry, type BookResult } from "../src/assemble.ts";
 import { assembleConferencePart } from "../src/assembleGC.ts";
-import { classify, SCRIPTURE_PARTS, bookName, chapterWord } from "../src/scripture.ts";
+import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "../src/scripture.ts";
 import { renderPdf } from "../src/render.ts";
 import type { Annotation, DocBook, DocPart } from "../src/types.ts";
 import type { Diag } from "../src/units.ts";
@@ -78,6 +78,7 @@ async function main() {
       const spec = {
         slug: meta.slug,
         name: bookName(meta.collection, meta.slug, peek?.meta.title),
+        abbrev: abbrev(meta.collection, meta.slug),
         base: meta.base,
         order: meta.order,
         partKey: pdef.key,

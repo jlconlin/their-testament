@@ -57,6 +57,41 @@ const CHAPTER_WORD: Record<string, string> = {
   "ot/ps": "Psalm",
 };
 
+// Official abbreviations, from
+// churchofjesuschrist.org/study/scriptures/quad/quad/abbreviations
+const ABBREV: Record<string, string> = {
+  "ot/gen": "Gen.", "ot/ex": "Ex.", "ot/lev": "Lev.", "ot/num": "Num.",
+  "ot/deut": "Deut.", "ot/josh": "Josh.", "ot/judg": "Judg.", "ot/ruth": "Ruth",
+  "ot/1-sam": "1 Sam.", "ot/2-sam": "2 Sam.", "ot/1-kgs": "1 Kgs.", "ot/2-kgs": "2 Kgs.",
+  "ot/1-chr": "1 Chr.", "ot/2-chr": "2 Chr.", "ot/ezra": "Ezra", "ot/neh": "Neh.",
+  "ot/esth": "Esth.", "ot/job": "Job", "ot/ps": "Ps.", "ot/prov": "Prov.",
+  "ot/eccl": "Eccl.", "ot/song": "Song", "ot/isa": "Isa.", "ot/jer": "Jer.",
+  "ot/lam": "Lam.", "ot/ezek": "Ezek.", "ot/dan": "Dan.", "ot/hosea": "Hosea",
+  "ot/joel": "Joel", "ot/amos": "Amos", "ot/obad": "Obad.", "ot/jonah": "Jonah",
+  "ot/micah": "Micah", "ot/nahum": "Nahum", "ot/hab": "Hab.", "ot/zeph": "Zeph.",
+  "ot/hag": "Hag.", "ot/zech": "Zech.", "ot/mal": "Mal.",
+  "nt/matt": "Matt.", "nt/mark": "Mark", "nt/luke": "Luke", "nt/john": "John",
+  "nt/acts": "Acts", "nt/rom": "Rom.", "nt/1-cor": "1 Cor.", "nt/2-cor": "2 Cor.",
+  "nt/gal": "Gal.", "nt/eph": "Eph.", "nt/philip": "Philip.", "nt/col": "Col.",
+  "nt/1-thes": "1 Thes.", "nt/2-thes": "2 Thes.", "nt/1-tim": "1 Tim.", "nt/2-tim": "2 Tim.",
+  "nt/titus": "Titus", "nt/philem": "Philem.", "nt/heb": "Heb.", "nt/james": "James",
+  "nt/1-pet": "1 Pet.", "nt/2-pet": "2 Pet.", "nt/1-jn": "1 Jn.", "nt/2-jn": "2 Jn.",
+  "nt/3-jn": "3 Jn.", "nt/jude": "Jude", "nt/rev": "Rev.",
+  "bofm/1-ne": "1 Ne.", "bofm/2-ne": "2 Ne.", "bofm/jacob": "Jacob", "bofm/enos": "Enos",
+  "bofm/jarom": "Jarom", "bofm/omni": "Omni", "bofm/w-of-m": "W of M", "bofm/mosiah": "Mosiah",
+  "bofm/alma": "Alma", "bofm/hel": "Hel.", "bofm/3-ne": "3 Ne.", "bofm/4-ne": "4 Ne.",
+  "bofm/morm": "Morm.", "bofm/ether": "Ether", "bofm/moro": "Moro.",
+  "dc-testament/dc": "D&C", "dc-testament/od": "OD",
+  "pgp/moses": "Moses", "pgp/abr": "Abr.", "pgp/js-m": "JS—M", "pgp/js-h": "JS—H",
+  "pgp/a-of-f": "A of F",
+  "jst/jst-gen": "JST Gen.", "jst/jst-ex": "JST Ex.", "jst/jst-matt": "JST Matt.",
+  "jst/jst-mark": "JST Mark", "jst/jst-luke": "JST Luke", "jst/jst-john": "JST John",
+};
+
+export function abbrev(collection: string, slug: string): string {
+  return ABBREV[`${collection}/${slug}`] ?? slug;
+}
+
 export type Classification =
   | { scope: "scripture"; partKey: string; partTitle: string; partOrder: number;
       collection: string; bookSlug: string; bookOrder: number; chapter: number;
