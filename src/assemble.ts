@@ -86,7 +86,7 @@ export async function assembleScriptureBook(
       }
       continue;
     }
-    const verses = parseVerses(page);
+    const verses = parseVerses(page, chapter);
 
     const res = assembleUnits(verses, byChapter.get(chapter)!, {
       inScope: inBook,
@@ -95,25 +95,29 @@ export async function assembleScriptureBook(
       unitLabel: (ref) => ref,
     });
 
-    for (const d of res.diags) diags.push({ ...d, unitRef: `${chapter}:${d.unitRef}` });
+    for (const d of res.diags) diags.push({ ...d, unitRef: `${spec.name} ${d.unitRef}` });
     located.push(...res.located.map((r) => ({ ref: r.ref, status: r.status })));
 
     for (const { tag, ref } of res.tagRefs) {
-      const [c, v] = ref.split(":").map(Number);
+      // ref is now "chapter:verse"
+      const v = Number(ref.split(":")[1]);
       tagEntries.push({
         tag,
         label: `${spec.name} ${ref}`,
         key: `${spec.partKey}|${chapter}|${ref}`,
-        sort: [spec.order, c ?? chapter, v ?? 0],
+        sort: [spec.order, chapter, v || 0],
       });
     }
 
-    chapters.push({
-      book: spec.name,
-      chapter,
-      reference: `${spec.name} ${chapter}`,
-      verses: res.docVerses,
-    });
+    if (res.docVerses.length > 0) {
+      chapters.push({
+        book: spec.name,
+        chapter,
+        reference: `${spec.name} ${chapter}`,
+        chapterWord: spec.chapterWord ?? "Chapter",
+        verses: res.docVerses,
+      });
+    }
   }
 
   return { chapters, tagEntries, diags, located };

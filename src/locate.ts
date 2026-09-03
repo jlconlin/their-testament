@@ -14,6 +14,12 @@ export function locate(text: string, startOffset: number, endOffset: number): Lo
   const words = text.split(" ");
   const n = words.length;
 
+  // Backwards / zero-width selection (Gospel Library sometimes stores endOffset =
+  // startOffset - 1): mark just the word at startOffset.
+  if (endOffset > 0 && endOffset < startOffset) {
+    endOffset = startOffset;
+  }
+
   let startChar: number;
   if (startOffset === -1 || startOffset === 0 || startOffset === 1) {
     startChar = 0;

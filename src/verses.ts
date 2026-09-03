@@ -9,16 +9,30 @@ import type { ContentPage, InlineStyleKind, Verse } from "./types.ts";
  * offsets index into (matches how the community exporter counts: strip <sup>
  * and .verse-number, take text, split on spaces).
  */
-export function parseVerses(page: ContentPage): Verse[] {
+export function parseVerses(page: ContentPage, chapter?: number): Verse[] {
   const root = parse(page.content.body, { blockTextElements: {} });
   const verses: Verse[] = [];
 
   for (const p of root.querySelectorAll("p.verse")) {
-    const ref = p.getAttribute("data-eng-ref") ?? "";
     const vid = p.getAttribute("id") ?? "";
     const aid = p.getAttribute("data-aid") ?? "";
+    const engRef = p.getAttribute("data-eng-ref"); // OT/NT only: "38:1"
+
+    // verse number: from the .verse-number span (all standard works have it),
+    // falling back to data-eng-ref or sequence.
+    const vnSpan = p.querySelector(".verse-number")?.text ?? "";
+    const vnMatch = vnSpan.match(/\d+/);
+    const num = vnMatch
+      ? Number(vnMatch[0])
+      : engRef
+        ? Number(engRef.split(":")[1])
+        : verses.length + 1;
+
+    // ref is always "chapter:verse" so anchoring/index keys are uniform across
+    // OT/NT (which carry data-eng-ref) and BoM/D&C/PoGP (which don't).
+    const ref = chapter != null ? `${chapter}:${num}` : engRef ?? `${num}`;
+
     const { text, styles } = extract(p);
-    const num = Number(ref.split(":")[1] ?? verses.length + 1);
     verses.push({ ref, vid, aid, num, text, styles });
   }
   return verses;

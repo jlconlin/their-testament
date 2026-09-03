@@ -352,16 +352,20 @@
     }
     mdebt.update(0pt)
     [#metadata(ch.reference)<rh>]
+    if ch.verses.len() == 0 { continue }
+    let cw-word = ch.at("chapterWord", default: "Chapter")
     v(if ci == 0 { 0.10in } else { 0.42in })
     block(breakable: false, {
-      heading(level: 3)[Chapter #ch.chapter]
+      heading(level: 3)[#cw-word #ch.chapter]
       [#metadata(ckey(part.key, ch.chapter))<cm>]
       align(center, box(width: colw)[#align(center,
-        text(size: 12pt, tracking: 0.10em, fill: rgb("#4a4238"), number-type: "lining")[Chapter #ch.chapter])])
+        text(size: 12pt, tracking: 0.10em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
       v(0.2in)
-      if ch.verses.len() > 0 { verse(part.key, ch.chapter, ch.verses.first()) }
+      verse(part.key, ch.chapter, ch.verses.first())
     })
-    for vv in ch.verses.slice(1) { verse(part.key, ch.chapter, vv) }
+    if ch.verses.len() > 1 {
+      for vv in ch.verses.slice(1) { verse(part.key, ch.chapter, vv) }
+    }
   }
 }
 

@@ -89,9 +89,12 @@ async function main() {
       allTags.push(...result.tagEntries);
       process.stdout.write(`  ${spec.name}: ${result.chapters.length} ch, ${result.diags.length} diag rows\r`);
     }
-    if (books.length) {
-      parts.push(buildScripturePart(pdef.key, pdef.title, books));
-      console.log(`\n[${pdef.title}] ${books.length} books`);
+    const part = buildScripturePart(pdef.key, pdef.title, books);
+    if (part.kind === "scripture" && part.chapters.length) {
+      parts.push(part);
+      console.log(`\n[${pdef.title}] ${new Set(part.chapters.map((c) => c.book)).size} books, ${part.chapters.length} chapters`);
+    } else if (books.length) {
+      console.log(`\n[${pdef.title}] ${books.length} books but 0 renderable chapters — dropped`);
     }
   }
 

@@ -138,6 +138,7 @@ export interface DocChapter {
   book: string;
   chapter: number;
   reference: string;          // "Job 1"
+  chapterWord: string;        // "Chapter" | "Psalm" | "Section"
   verses: DocVerse[];
 }
 

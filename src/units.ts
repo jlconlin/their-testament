@@ -133,9 +133,12 @@ export function assembleUnits(
       : null;
     const refLabel = spanRefs.length > 1 ? opts.rangeLabel(spanRefs) : opts.unitLabel(spanRefs[0]!);
     const body = parseNote(a.note?.content);
-    if (a.note?.content && body.length === 0) {
+    const emptyNote = a.note?.content && body.length === 0;
+    if (emptyNote) {
       diags.push({ annotationId: a.annotationId, created, unitRef: anchorRef, category: "note-parse-empty" });
     }
+    // a whitespace-only note with no title and no tags contributes nothing — skip it
+    if (emptyNote && !a.note?.title && a.tags.length === 0) continue;
     if (hasText || a.tags.length) {
       diags.push({
         annotationId: a.annotationId, created, unitRef: anchorRef, category: "located",
