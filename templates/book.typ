@@ -20,6 +20,7 @@
   dark_blue: rgb("#2596FF"), purple: rgb("#9D53FE"), brown: rgb("#C06B45"),
   gray: rgb("#93A0AA"),
 )
+#let sans = "Gill Sans"   // headings & titles (body stays serif)
 #let ink = rgb("#1a1712")
 #let notegray = rgb("#544f49")
 #let tagcol = rgb("#8a7f6f")
@@ -52,8 +53,8 @@
     let pstart = 0
     for m in query(<pm>) { if m.location().page() <= hp { pstart = m.location().page() } }
     let folio = hp - pstart
-    set text(size: 8pt, tracking: 0.14em, fill: headcol, number-type: "lining")
-    box(width: colw)[#smallcaps(upper(cur)) #h(1fr) #if folio > 0 [#folio]]
+    set text(font: sans, size: 7.5pt, tracking: 0.16em, fill: headcol, number-type: "lining")
+    box(width: colw)[#upper(cur) #h(1fr) #if folio > 0 [#folio]]
   },
   header-ascent: 45%,
 )
@@ -202,8 +203,8 @@
 #let title-page() = plain-page({
   v(2.4in)
   align(center, {
-    text(size: 20pt, tracking: 0.04em)[#doc.at("title", default: "The Marked Scriptures")]
-    if doc.personName != none { v(0.5em); text(size: 13pt, fill: notegray)[#doc.personName] }
+    text(font: sans, size: 22pt, weight: "regular", tracking: 0.02em)[#doc.at("title", default: "The Marked Scriptures")]
+    if doc.personName != none { v(0.55em); text(font: sans, size: 13pt, fill: notegray)[#doc.personName] }
   })
   v(1fr)
   align(center, text(size: 9pt, fill: headcol, number-type: "lining")[#doc.generatedAt.slice(0, 10)])
@@ -211,7 +212,7 @@
 
 #let stats-page() = plain-page({
   v(1.6in)
-  align(center, text(size: 13pt, tracking: 0.16em)[#smallcaps("An Overview")])
+  align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("An Overview")])
   v(0.6in)
   set par(justify: false, leading: 0.9em)
   let s = doc.stats
@@ -233,7 +234,7 @@
 // carries its own contents).
 #let parts-page() = plain-page(context {
   v(1.1in)
-  align(center, text(size: 13pt, tracking: 0.16em)[#smallcaps("The Parts")])
+  align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("The Parts")])
   v(0.55in)
   set par(justify: false, leading: 0.6em, spacing: 0.8em)
   for part in doc.parts {
@@ -248,7 +249,7 @@
       [#part.conferences.len() conferences, #n talks]
     }
     block(box(width: 100%, {
-      let title = text(weight: "bold", size: 11pt)[#part.title]
+      let title = text(font: sans, weight: "medium", size: 11pt)[#part.title]
       if ploc != none { link(ploc, title) } else { title }
       linebreak()
       text(size: 8.5pt, fill: notegray)[#summary]
@@ -257,7 +258,7 @@
   v(1em)
   let il = query(<im>)
   if il.len() > 0 {
-    link(il.first().location())[#text(weight: "bold", size: 11pt)[Tag Index]]
+    link(il.first().location())[#text(font: sans, weight: "medium", size: 11pt)[Tag Index]]
   }
 })
 
@@ -274,7 +275,7 @@
   let leader = box(width: 1fr, inset: (x: 0.4em), repeat(text(fill: rgb("#c9c1b3"))[.], gap: 0.28em))
 
   v(0.9in)
-  align(center, text(size: 12pt, tracking: 0.16em, fill: rgb("#4a4238"))[#smallcaps(part.title + " — Contents")])
+  align(center, text(font: sans, size: 11pt, weight: "medium", tracking: 0.2em, fill: rgb("#4a4238"))[#upper(part.title) #h(0.4em) — #h(0.4em) #upper("Contents")])
   v(0.45in)
   set par(justify: false, leading: 0.5em, spacing: 0.5em)
 
@@ -286,7 +287,7 @@
     }
     for (bname, chs) in books {
       let word = chs.first().at("chapterWord", default: "Chapter")
-      block(above: 0.6em, below: 0.15em, text(weight: "bold", size: 9.5pt)[#bname])
+      block(above: 0.6em, below: 0.15em, text(font: sans, weight: "medium", size: 9.5pt)[#bname])
       // chapters, wrapped ~10 per line; page number per line = first chapter of that line
       let per = 10
       let lines = range(0, chs.len(), step: per).map(i => chs.slice(i, calc.min(i + per, chs.len())))
@@ -305,7 +306,7 @@
     }
   } else {
     for conf in part.conferences {
-      block(above: 0.6em, below: 0.15em, text(style: "italic", size: 9.5pt)[#conf.label])
+      block(above: 0.6em, below: 0.15em, text(font: sans, size: 9pt, fill: notegray)[#conf.label])
       for talk in conf.talks {
         let loc = cmOf(part.key + "|" + conf.key + "|" + talk.slug)
         let p = relPage(loc)
@@ -324,15 +325,15 @@
 
 #let tag-index() = {
   page(numbering: none, margin: matter-margin, header: context {
-    set text(size: 8pt, tracking: 0.14em, fill: headcol)
-    smallcaps("Tag Index")
+    set text(font: sans, size: 7.5pt, tracking: 0.16em, fill: headcol)
+    upper("Tag Index")
   })[
     #{
       heading(level: 1)[Tag Index]
       [#metadata("tag-index")<im>]
     }
     #v(0.5in)
-    #align(center, text(size: 13pt, tracking: 0.16em)[#smallcaps("Tag Index")])
+    #align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Tag Index")])
     #v(0.35in)
     #set text(size: 8.5pt)
     #set par(justify: false, leading: 0.5em, spacing: 0.55em, hanging-indent: 1em)
@@ -391,7 +392,7 @@
       heading(level: 3)[#cw-word #ch.chapter]
       [#metadata(ckey(part.key, ch.book, ch.chapter))<cm>]
       align(center, box(width: colw)[#align(center,
-        text(size: 12pt, tracking: 0.10em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
+        text(font: sans, size: 12pt, weight: "medium", tracking: 0.08em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
       v(0.2in)
       verse(part.key, ch.book, ch.chapter, ch.verses.first())
     })
@@ -405,7 +406,7 @@
   for (ci, conf) in part.conferences.enumerate() {
     heading(level: 2)[#conf.label]
     v(if ci == 0 { 0.10in } else { 0.5in })
-    align(center, text(size: 13pt, tracking: 0.14em, fill: rgb("#4a4238"))[#smallcaps(conf.label)])
+    align(center, text(font: sans, size: 13pt, weight: "medium", tracking: 0.14em, fill: rgb("#4a4238"))[#upper(conf.label)])
     v(0.3in)
     for talk in conf.talks {
       let tkey = part.key + "|" + conf.key + "|" + talk.slug
@@ -417,12 +418,12 @@
         [#metadata(tkey)<cm>]
         set par(justify: false)
         align(center, box(width: gcw, {
-          text(size: 12.5pt, tracking: 0.02em)[#talk.title]
+          text(font: sans, size: 13pt, weight: "medium", tracking: 0.01em)[#talk.title]
           linebreak()
-          v(0.35em)
-          text(size: 8.5pt, fill: notegray, style: "italic")[By #talk.speaker]
+          v(0.4em)
+          text(font: sans, size: 8.5pt, fill: notegray)[#talk.speaker]
           if talk.role != none {
-            linebreak(); text(size: 7.5pt, fill: tagcol)[#talk.role]
+            linebreak(); text(font: sans, size: 7.5pt, fill: tagcol)[#talk.role]
           }
         }))
         v(0.24in)
@@ -442,7 +443,7 @@
     heading(level: 1)[#part.title]
     [#metadata(pkey(part.key))<pm>]
     v(2.6in)
-    align(center, text(size: 18pt, tracking: 0.18em)[#smallcaps(part.title)])
+    align(center, text(font: sans, size: 17pt, weight: "medium", tracking: 0.16em)[#upper(part.title)])
   })
   part-toc(part)
   if part.kind == "scripture" { render-scripture-part(part) }
