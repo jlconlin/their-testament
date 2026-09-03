@@ -1,0 +1,25 @@
+# Dependencies / build
+node_modules/
+dist/
+
+# Generated output — regenerable, and embeds personal annotation text
+out/
+*.pdf
+
+# Personal data / fetched content — do not commit
+data/raw/
+data/cache/
+.env
+secrets/
+*.token
+
+# Python (legacy)
+__pycache__/
+*.pyc
+.venv/
+
+# LaTeX aux (legacy)
+*.aux
+*.log
+*.fls
+*.fdb_latexmk

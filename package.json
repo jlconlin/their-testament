@@ -1,0 +1,19 @@
+{
+  "name": "gospel-library-preservation",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Turn Gospel Library annotations into a typeset keepsake PDF.",
+  "scripts": {
+    "build:job": "tsx scripts/build-job.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "tsx": "^4",
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "node-html-parser": "^9.0.3"
+  }
+}
