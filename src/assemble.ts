@@ -105,7 +105,7 @@ export async function assembleScriptureBook(
       tagEntries.push({
         tag,
         label: `${spec.abbrev ?? spec.name} ${ref}`, // "1 Cor. 13:4", "D&C 76:22"
-        key: `${spec.partKey}|${chapter}|${ref}`,
+        key: `${spec.partKey}|${spec.name}|${chapter}|${ref}`, // must match template vkey()
         sort: [spec.order, chapter, v || 0],
       });
     }

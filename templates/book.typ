@@ -29,8 +29,8 @@
 
 #let mdebt = state("mdebt", 0pt)
 
-#let vkey(part, ch, ref) = part + "|" + str(ch) + "|" + ref
-#let ckey(part, ch) = part + "|" + str(ch)
+#let vkey(part, book, ch, ref) = part + "|" + book + "|" + str(ch) + "|" + ref
+#let ckey(part, book, ch) = part + "|" + book + "|" + str(ch)
 #let pkey(part) = "P|" + part
 
 // ---- page + base styles ----------------------------------------------------
@@ -187,7 +187,7 @@
   }
 }
 
-#let verse(part, chnum, vs) = unit(vkey(part, chnum, vs.ref), vs, kind: "verse")
+#let verse(part, book, chnum, vs) = unit(vkey(part, book, chnum, vs.ref), vs, kind: "verse")
 
 // ---- front / structural pages ----------------------------------------------
 
@@ -229,63 +229,95 @@
   ])
 })
 
-#let toc-page() = plain-page(context {
+// Master front matter: a short list of the Parts (no chapter detail — each Part
+// carries its own contents).
+#let parts-page() = plain-page(context {
   v(1.1in)
-  align(center, text(size: 13pt, tracking: 0.16em)[#smallcaps("Contents")])
-  v(0.5in)
-  set par(justify: false, leading: 0.42em, spacing: 0.42em)
+  align(center, text(size: 13pt, tracking: 0.16em)[#smallcaps("The Parts")])
+  v(0.55in)
+  set par(justify: false, leading: 0.6em, spacing: 0.8em)
+  for part in doc.parts {
+    let pl = query(<pm>).filter(x => x.value == pkey(part.key))
+    let ploc = if pl.len() > 0 { pl.first().location() } else { none }
+    let summary = if part.kind == "scripture" {
+      let bs = part.chapters.map(c => c.book)
+      let books = bs.dedup()
+      [#books.len() book#if books.len() != 1 [s], #part.chapters.len() chapters]
+    } else {
+      let n = part.conferences.map(c => c.talks.len()).sum(default: 0)
+      [#part.conferences.len() conferences, #n talks]
+    }
+    block(box(width: 100%, {
+      let title = text(weight: "bold", size: 11pt)[#part.title]
+      if ploc != none { link(ploc, title) } else { title }
+      linebreak()
+      text(size: 8.5pt, fill: notegray)[#summary]
+    }))
+  }
+  v(1em)
+  let il = query(<im>)
+  if il.len() > 0 {
+    link(il.first().location())[#text(weight: "bold", size: 11pt)[Tag Index]]
+  }
+})
+
+// Per-Part contents page — rendered at the front of each Part.
+#let part-toc(part) = plain-page(context {
+  let pstart = query(<pm>).filter(x => x.value == pkey(part.key)).first().location().page()
+  let relPage = loc => if loc == none { none } else { loc.page() - pstart }
   let cmOf = m => {
     let q = query(<cm>).filter(x => x.value == m)
     if q.len() > 0 { q.first().location() } else { none }
   }
-  let relPage = loc => {
-    if loc == none { return none }
-    let pstart = 0
-    for m in query(<pm>) { if m.location().page() <= loc.page() { pstart = m.location().page() } }
-    loc.page() - pstart
-  }
-  let tocrow(indent, body, loc) = block(above: 0.28em, below: 0.28em, pad(left: indent, box(width: 100% - indent, {
-    if loc != none { link(loc, body) } else { body }
-    let p = relPage(loc)
-    if p != none [#h(1fr)#text(size: 8pt, fill: notegray, number-type: "lining")[#p]]
-  })))
-  for part in doc.parts {
-    let pl = query(<pm>).filter(x => x.value == pkey(part.key))
-    let ploc = if pl.len() > 0 { pl.first().location() } else { none }
-    block(above: 0.9em, below: 0.3em,
-      if ploc != none { link(ploc)[#text(weight: "bold")[#part.title]] } else { text(weight: "bold")[#part.title] })
-    if part.kind == "scripture" {
-      let books = ()
-      for ch in part.chapters {
-        if books.len() == 0 or books.last().at(0) != ch.book { books.push((ch.book, ())) }
-        books.last().at(1).push(ch)
-      }
-      for (bname, chs) in books {
-        let bloc = cmOf(ckey(part.key, chs.first().chapter))
-        tocrow(1em, text(size: 9.5pt)[#bname], bloc)
-        block(above: 0em, below: 0.28em, pad(left: 2em, text(size: 8pt, fill: notegray, number-type: "lining")[
-          #text(fill: tagcol)[chapters ] #chs.map(ch => {
-            let cloc = cmOf(ckey(part.key, ch.chapter))
-            if cloc != none { link(cloc)[#str(ch.chapter)] } else { str(ch.chapter) }
+
+  // faint dotted leader between content and page number
+  let leader = box(width: 1fr, inset: (x: 0.4em), repeat(text(fill: rgb("#c9c1b3"))[.], gap: 0.28em))
+
+  v(0.9in)
+  align(center, text(size: 12pt, tracking: 0.16em, fill: rgb("#4a4238"))[#smallcaps(part.title + " — Contents")])
+  v(0.45in)
+  set par(justify: false, leading: 0.5em, spacing: 0.5em)
+
+  if part.kind == "scripture" {
+    let books = ()
+    for ch in part.chapters {
+      if books.len() == 0 or books.last().at(0) != ch.book { books.push((ch.book, ())) }
+      books.last().at(1).push(ch)
+    }
+    for (bname, chs) in books {
+      let word = chs.first().at("chapterWord", default: "Chapter")
+      block(above: 0.6em, below: 0.15em, text(weight: "bold", size: 9.5pt)[#bname])
+      // chapters, wrapped ~10 per line; page number per line = first chapter of that line
+      let per = 10
+      let lines = range(0, chs.len(), step: per).map(i => chs.slice(i, calc.min(i + per, chs.len())))
+      for grp in lines {
+        let loc = cmOf(ckey(part.key, bname, grp.first().chapter))
+        block(above: 0.12em, below: 0.12em, pad(left: 1em, box(width: 100% - 1em, {
+          set text(size: 8.5pt)
+          grp.map(ch => {
+            let l = cmOf(ckey(part.key, bname, ch.chapter))
+            if l != none { link(l)[#ch.chapter] } else { [#ch.chapter] }
           }).join(", ")
-        ]))
+          leader
+          text(size: 7.5pt, fill: notegray, number-type: "lining")[#relPage(loc)]
+        })))
       }
-    } else if part.kind == "gc" {
-      for conf in part.conferences {
-        block(above: 0.5em, below: 0.2em, pad(left: 1em, text(size: 9pt, style: "italic")[#conf.label]))
-        for talk in conf.talks {
-          let cloc = cmOf(part.key + "|" + conf.key + "|" + talk.slug)
-          tocrow(2em,
-            [#text(size: 8.5pt)[#talk.title]#text(size: 8pt, fill: notegray)[ · #talk.speaker]],
-            cloc)
-        }
+    }
+  } else {
+    for conf in part.conferences {
+      block(above: 0.6em, below: 0.15em, text(style: "italic", size: 9.5pt)[#conf.label])
+      for talk in conf.talks {
+        let loc = cmOf(part.key + "|" + conf.key + "|" + talk.slug)
+        let p = relPage(loc)
+        block(above: 0.14em, below: 0.14em, pad(left: 1em, box(width: 100% - 1em, {
+          let body = [#text(size: 8.5pt)[#talk.title]#text(size: 8pt, fill: notegray)[ · #talk.speaker]]
+          if loc != none { link(loc, body) } else { body }
+          leader
+          if p != none { text(size: 7.5pt, fill: notegray, number-type: "lining")[#p] }
+        })))
       }
     }
   }
-  v(0.7em)
-  let il = query(<im>)
-  let iloc = if il.len() > 0 { il.first().location() } else { none }
-  if iloc != none { link(iloc)[#text(weight: "bold")[Tag Index]] } else { text(weight: "bold")[Tag Index] }
 })
 
 // ---- tag index (one, combined, at the back) ------------------------------
@@ -339,7 +371,7 @@
 
 #title-page()
 #stats-page()
-#toc-page()
+#parts-page()
 
 #let gcw = colw  // (was narrower; keeping equal for now so margin notes align)
 
@@ -357,14 +389,14 @@
     v(if ci == 0 { 0.10in } else { 0.42in })
     block(breakable: false, {
       heading(level: 3)[#cw-word #ch.chapter]
-      [#metadata(ckey(part.key, ch.chapter))<cm>]
+      [#metadata(ckey(part.key, ch.book, ch.chapter))<cm>]
       align(center, box(width: colw)[#align(center,
         text(size: 12pt, tracking: 0.10em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
       v(0.2in)
-      verse(part.key, ch.chapter, ch.verses.first())
+      verse(part.key, ch.book, ch.chapter, ch.verses.first())
     })
     if ch.verses.len() > 1 {
-      for vv in ch.verses.slice(1) { verse(part.key, ch.chapter, vv) }
+      for vv in ch.verses.slice(1) { verse(part.key, ch.book, ch.chapter, vv) }
     }
   }
 }
@@ -412,6 +444,7 @@
     v(2.6in)
     align(center, text(size: 18pt, tracking: 0.18em)[#smallcaps(part.title)])
   })
+  part-toc(part)
   if part.kind == "scripture" { render-scripture-part(part) }
   else if part.kind == "gc" { render-gc-part(part) }
 }
