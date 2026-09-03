@@ -1,7 +1,7 @@
 import type { Annotation, DocConference, DocPart, DocTalk, Highlight } from "./types.ts";
 import type { ContentClient } from "./contentApi.ts";
 import { parseTalk } from "./talk.ts";
-import { assembleUnits } from "./units.ts";
+import { assembleUnits, type Diag } from "./units.ts";
 import type { TagEntry } from "./assemble.ts";
 
 const MONTHS: Record<string, string> = { "04": "April", "10": "October" };
@@ -22,11 +22,12 @@ export async function assembleConferencePart(
   content: ContentClient,
   partKey = "gc",
   partTitle = "General Conference",
-): Promise<{ part: DocPart; tagEntries: TagEntry[]; located: string[]; noMatch: string[] }> {
+): Promise<{ part: DocPart; tagEntries: TagEntry[]; located: string[]; noMatch: string[]; diags: Diag[] }> {
   const conferences: DocConference[] = [];
   const tagEntries: TagEntry[] = [];
   const located: string[] = [];
   const noMatch: string[] = [];
+  const diags: Diag[] = [];
   let order = 0;
 
   for (const { year, month } of years) {
@@ -47,14 +48,23 @@ export async function assembleConferencePart(
     }
     if (byTalk.size === 0) continue;
 
-    const confPage = await content.get(`/general-conference/${year}/${month}`);
-    const ordered = talkOrder(confPage.content.body).filter((s) => byTalk.has(s));
+    const confPage = await content.tryGet(`/general-conference/${year}/${month}`);
+    const ordered = confPage ? talkOrder(confPage.content.body).filter((s) => byTalk.has(s)) : [];
     // any annotated talks not in the TOC list (session pages etc.) — append
     for (const s of byTalk.keys()) if (!ordered.includes(s)) ordered.push(s);
 
     const talks: DocTalk[] = [];
     for (const slug of ordered) {
-      const page = await content.get(`${confPrefix}${slug}`);
+      const page = await content.tryGet(`${confPrefix}${slug}`);
+      if (!page) {
+        for (const a of byTalk.get(slug)!) {
+          diags.push({
+            annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
+            unitRef: `${year}-${month}/${slug}`, category: "pid-no-match", detail: "content fetch failed",
+          });
+        }
+        continue;
+      }
       const parsed = parseTalk(page);
       const talkKey = `${partKey}|${year}-${month}|${slug}`; // must match template tkey (conf.key = "YYYY-MM")
 
@@ -72,6 +82,9 @@ export async function assembleConferencePart(
       const confAbbr = month === "04" ? "A" : month === "10" ? "O" : month;
       const yy = year.slice(2);
       const surname = parsed.speaker.split(" ").filter(Boolean).at(-1) ?? parsed.speaker;
+      for (const d of res.diags) {
+        diags.push({ ...d, unitRef: `${confAbbr}${yy}/${surname}/${d.unitRef}` });
+      }
       for (const { tag, ref } of res.tagRefs) {
         tagEntries.push({
           tag,
@@ -106,6 +119,7 @@ export async function assembleConferencePart(
     tagEntries,
     located,
     noMatch,
+    diags,
   };
 }
 

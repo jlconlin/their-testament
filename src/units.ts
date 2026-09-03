@@ -14,12 +14,34 @@ export interface LocatedRow {
   offsets: string; status: string; sample: string;
 }
 
+export type DiagCategory =
+  | "located"            // highlight span resolved cleanly
+  | "whole-unit-fallback" // offsets out of range → highlighted whole unit
+  | "empty-span"          // offsets produced a zero-length span → whole unit
+  | "pid-no-match"        // highlight's paragraph id / uri matched no parsed unit
+  | "clear"              // clear colour — intentionally no visual mark
+  | "note-no-anchor"     // annotation has a note/tags but no highlight to anchor it
+  | "note-parse-empty";  // note had content but parsed to nothing
+
+export interface Diag {
+  annotationId: string;
+  created: string;       // YYYY-MM-DD
+  unitRef: string;       // e.g. "1:20" or "p5"
+  category: DiagCategory;
+  detail?: string;
+  noteChars?: number;
+  noteFeatures?: string[]; // "link" | "list" | "quote" | "bold" | "italic" | "multiline"
+}
+
 export interface UnitsResult {
   docVerses: DocVerse[];
   /** (tag, unit-ref) pairs; caller adds book/talk qualifiers + sort keys */
   tagRefs: { tag: string; ref: string }[];
   located: LocatedRow[];
   noMatch: string[];
+  diags: Diag[];
+  /** verses/paragraphs carrying >1 note */
+  multiNoteUnits: number;
 }
 
 export function assembleUnits(
@@ -43,8 +65,22 @@ export function assembleUnits(
   const tagRefs: { tag: string; ref: string }[] = [];
   const located: LocatedRow[] = [];
   const noMatch: string[] = [];
+  const diags: Diag[] = [];
+
+  const noteFeatures = (html: string | undefined, body: ReturnType<typeof parseNote>): string[] => {
+    const f: string[] = [];
+    if (!html) return f;
+    if (/<a\s/i.test(html)) f.push("link");
+    if (/<(ul|ol)\b/i.test(html)) f.push("list");
+    if (/<blockquote\b/i.test(html)) f.push("quote");
+    if (/<(b|strong)\b/i.test(html)) f.push("bold");
+    if (/<(i|em)\b/i.test(html)) f.push("italic");
+    if (body.length > 1) f.push("multiblock");
+    return f;
+  };
 
   for (const a of anns) {
+    const created = (a.created ?? "").slice(0, 10);
     const hs = (a.highlights ?? []).filter(opts.inScope);
     const spanRefs: string[] = [];
     const spanUnits: { u: Verse; h: Highlight; loc: Located }[] = [];
@@ -55,12 +91,14 @@ export function assembleUnits(
         byVid.get((h.uri ?? "").match(/\.(p[\w-]+)(?:[?]|$)/)?.[1] ?? "");
       if (!u) {
         noMatch.push(`${opts.label}: ${h.uri}`);
+        diags.push({ annotationId: a.annotationId, created, unitRef: h.pid, category: "pid-no-match", detail: h.uri });
         continue;
       }
       spanRefs.push(u.ref);
       if (h.color === "clear") {
         located.push({ ref: `${opts.label} ${u.ref}`, color: "clear", style: "-", offsets: "-", status: "no visual mark", sample: "" });
         spanUnits.push({ u, h, loc: { start: 0, end: 0, substring: "", ok: true } });
+        diags.push({ annotationId: a.annotationId, created, unitRef: u.ref, category: "clear" });
         continue;
       }
       const loc = locate(u.text, h.startOffset, h.endOffset);
@@ -75,18 +113,36 @@ export function assembleUnits(
         status: loc.ok ? "OK" : `FALLBACK: ${loc.reason}`,
         sample: loc.substring.slice(0, 60),
       });
+      let cat: DiagCategory = "located";
+      if (!loc.ok) cat = (loc.reason ?? "").startsWith("empty span") ? "empty-span" : "whole-unit-fallback";
+      diags.push({ annotationId: a.annotationId, created, unitRef: u.ref, category: cat, detail: loc.ok ? undefined : loc.reason });
     }
 
     const hasText = !!(a.note?.content || a.note?.title);
     if (!hasText && a.tags.length === 0) continue;
     const anchorRef = spanRefs[0];
-    if (!anchorRef) continue;
+    if (!anchorRef) {
+      diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
+        detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+      continue;
+    }
 
     const first = spanUnits[0];
     const mark = first && first.h.color !== "clear"
       ? { color: first.h.color, style: style(first.h) }
       : null;
     const refLabel = spanRefs.length > 1 ? opts.rangeLabel(spanRefs) : opts.unitLabel(spanRefs[0]!);
+    const body = parseNote(a.note?.content);
+    if (a.note?.content && body.length === 0) {
+      diags.push({ annotationId: a.annotationId, created, unitRef: anchorRef, category: "note-parse-empty" });
+    }
+    if (hasText || a.tags.length) {
+      diags.push({
+        annotationId: a.annotationId, created, unitRef: anchorRef, category: "located",
+        noteChars: a.note?.content ? a.note.content.replace(/<[^>]+>/g, "").length : 0,
+        noteFeatures: noteFeatures(a.note?.content, body),
+      });
+    }
 
     notesByRef.set(anchorRef, [
       ...(notesByRef.get(anchorRef) ?? []),
@@ -94,9 +150,9 @@ export function assembleUnits(
         refLabel, mark,
         isReference: a.type === "reference",
         title: a.note?.title ?? null,
-        body: parseNote(a.note?.content),
+        body,
         tags: a.tags.map((t) => t.name),
-        created: (a.created ?? "").slice(0, 10),
+        created,
         spanRefs,
         _spanStart: first?.loc.start ?? 0,
       } as Note & { _spanStart: number },
@@ -135,5 +191,6 @@ export function assembleUnits(
     prev = u.num;
   }
 
-  return { docVerses, tagRefs, located, noMatch };
+  const multiNoteUnits = [...notesByRef.values()].filter((ns) => ns.length > 1).length;
+  return { docVerses, tagRefs, located, noMatch, diags, multiNoteUnits };
 }

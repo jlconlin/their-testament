@@ -28,9 +28,15 @@ export class ContentClient {
     return join(this.cacheDir, `${slug}.${this.lang}.json`);
   }
 
+  /** docUri -> failure reason, for docs that could not be fetched */
+  readonly failures = new Map<string, string>();
+  fetched = 0;
+  cacheHits = 0;
+
   async get(docUri: string): Promise<ContentPage> {
     const path = this.cachePath(docUri);
     if (existsSync(path)) {
+      this.cacheHits++;
       return JSON.parse(await readFile(path, "utf8")) as ContentPage;
     }
 
@@ -45,6 +51,17 @@ export class ContentClient {
 
     await mkdir(this.cacheDir, { recursive: true });
     await writeFile(path, JSON.stringify(data));
+    this.fetched++;
     return data;
+  }
+
+  /** Like get(), but records the failure and returns null instead of throwing. */
+  async tryGet(docUri: string): Promise<ContentPage | null> {
+    try {
+      return await this.get(docUri);
+    } catch (e) {
+      this.failures.set(docUri, e instanceof Error ? e.message : String(e));
+      return null;
+    }
   }
 }

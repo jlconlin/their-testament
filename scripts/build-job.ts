@@ -2,7 +2,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
-import { assembleBook, mergeTagIndex } from "../src/assemble.ts";
+import { assembleScriptureBook, buildScripturePart, mergeTagIndex } from "../src/assemble.ts";
 import { renderPdf } from "../src/render.ts";
 import type { Annotation, DocBook } from "../src/types.ts";
 
@@ -37,28 +37,19 @@ async function main() {
   console.log(`Job annotations: ${job.length}`);
 
   const content = new ContentClient(resolve(ROOT, "data/cache/content"));
-  const { part, report, tagEntries } = await assembleBook(
-    job,
-    { slug: "job", name: "Job", base: "/scriptures/ot", order: 18 }, // Job = 18th OT book
-    content,
-    "ot",
-    "Old Testament",
-  );
+  const spec = {
+    slug: "job", name: "Job", base: "/scriptures/ot", order: 18, partKey: "ot",
+  };
+  const result = await assembleScriptureBook(job, spec, content);
+  const part = buildScripturePart("ot", "Old Testament", [{ spec, result }]);
 
-  // validation report
-  const lines = [
-    `location        mark              offsets      status                 sample`,
-    "-".repeat(96),
-    ...report.located.map(
-      (r) =>
-        `${r.ref.padEnd(15)} ${(`${r.color}/${r.style}`).padEnd(17)} ${r.offsets.padEnd(12)} ${r.status.padEnd(22)} ${r.sample}`,
-    ),
-  ];
-  if (report.noVerseMatch.length) {
-    lines.push("", "NO VERSE MATCH:", ...report.noVerseMatch);
-  }
-  writeFileSync(resolve(ROOT, "out/job/validation.txt"), lines.join("\n") + "\n");
-  console.log(lines.join("\n"));
+  const fails = result.diags.filter((d) => !["located", "clear"].includes(d.category));
+  writeFileSync(
+    resolve(ROOT, "out/job/validation.txt"),
+    result.located.map((r) => `${r.ref}  ${r.status}`).join("\n") +
+      `\n\n${fails.length} non-clean rows:\n` + fails.map((d) => `  ${d.category} ${d.unitRef} ${d.detail ?? ""}`).join("\n") + "\n",
+  );
+  console.log(`${result.located.length} marks, ${fails.length} non-clean`);
 
   const book: DocBook = {
     generatedAt: new Date().toISOString(),
@@ -66,7 +57,7 @@ async function main() {
     title: "The Marked Scriptures — Job",
     margins: (process.env.MARGINS as "fixed" | "mirrored") ?? "fixed",
     parts: [part],
-    tagIndex: mergeTagIndex(tagEntries),
+    tagIndex: mergeTagIndex(result.tagEntries),
     stats: jobStats(job),
   };
 

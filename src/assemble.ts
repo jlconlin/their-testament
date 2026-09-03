@@ -1,11 +1,15 @@
 import type {
-  Annotation, DocChapter, DocPart, DocVerse, Highlight, Mark, Note, TagIndexEntry, Verse,
+  Annotation, DocChapter, DocPart, Highlight, TagIndexEntry,
 } from "./types.ts";
+import type { ContentClient } from "./contentApi.ts";
+import { parseVerses } from "./verses.ts";
+import { assembleUnits, type Diag } from "./units.ts";
+
 export type { TagIndexEntry };
 
 export interface TagEntry {
   tag: string;
-  label: string;   // "Job 1:20"  |  "A 15 · Bednar"
+  label: string;   // "Job 1:20"  |  "A-15, Bednar"
   key: string;     // vkey link target
   showPage?: boolean;
   sort: [number, number, number]; // [book order, chapter, verse]
@@ -28,48 +32,34 @@ export function mergeTagIndex(entries: TagEntry[]): TagIndexEntry[] {
     }))
     .sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }));
 }
-import type { ContentClient } from "./contentApi.ts";
-import { parseVerses } from "./verses.ts";
-import { locate, type Located } from "./locate.ts";
-import { parseNote } from "./noteHtml.ts";
-import { segment } from "./segment.ts";
 
-const LETTERS = "abcdefghijklmnopqrstuvwxyz";
-
-export interface AssembleReport {
-  located: {
-    ref: string; color: string; style: string;
-    offsets: string; status: string; sample: string;
-  }[];
-  noVerseMatch: string[];
+export interface BookSpec {
+  slug: string;       // "job"
+  name: string;       // "Job"
+  base: string;       // "/scriptures/ot"
+  order: number;      // canonical position (for the index sort)
+  partKey: string;    // "ot"
+  chapterWord?: string; // "Chapter" | "Psalm" | "Section"
 }
 
-interface BookSpec {
-  /** URI segment, e.g. "job" */
-  slug: string;
-  /** canonical book name, e.g. "Job" */
-  name: string;
-  /** parent path, e.g. "/scriptures/ot" */
-  base: string;
-  /** canonical position for index sorting */
-  order: number;
+export interface BookResult {
+  chapters: DocChapter[];
+  tagEntries: TagEntry[];
+  diags: Diag[];
+  located: { ref: string; status: string }[];
 }
 
-const style = (h: Highlight): "fill" | "underline" => (h.style ? "underline" : "fill");
+const CH_KEY = (partKey: string, ch: number) => `${partKey}|${ch}`;
 
-export async function assembleBook(
+/** Assemble one scripture book. Chapters are grouped into a Part by the caller. */
+export async function assembleScriptureBook(
   annotations: Annotation[],
   spec: BookSpec,
   content: ContentClient,
-  partKey: string,
-  partTitle: string,
-): Promise<{ part: DocPart; report: AssembleReport; tagEntries: TagEntry[] }> {
-  const report: AssembleReport = { located: [], noVerseMatch: [] };
-
-  const chapRe = new RegExp(`${spec.base}/${spec.slug}/(\\d+)(?:[.?]|$)`);
+): Promise<BookResult> {
+  const chapRe = new RegExp(`${spec.base}/${spec.slug}/(\\d+)(?:[.?#]|$)`);
   const inBook = (h: Highlight) => chapRe.test(h.uri ?? "");
 
-  // annotation -> chapters it touches
   const byChapter = new Map<number, Annotation[]>();
   for (const a of annotations) {
     const chs = new Set<number>();
@@ -77,155 +67,69 @@ export async function assembleBook(
       const m = (h.uri ?? "").match(chapRe);
       if (m) chs.add(Number(m[1]));
     }
-    for (const c of chs) {
-      const arr = byChapter.get(c) ?? [];
-      arr.push(a);
-      byChapter.set(c, arr);
-    }
+    for (const c of chs) byChapter.set(c, [...(byChapter.get(c) ?? []), a]);
   }
 
   const chapters: DocChapter[] = [];
   const tagEntries: TagEntry[] = [];
-  const vkey = (ch: number, ref: string) => `${partKey}|${ch}|${ref}`;
+  const diags: Diag[] = [];
+  const located: { ref: string; status: string }[] = [];
 
   for (const chapter of [...byChapter.keys()].sort((a, b) => a - b)) {
-    const page = await content.get(`${spec.base}/${spec.slug}/${chapter}`);
+    const page = await content.tryGet(`${spec.base}/${spec.slug}/${chapter}`);
+    if (!page) {
+      for (const a of byChapter.get(chapter)!) {
+        diags.push({
+          annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
+          unitRef: `${chapter}`, category: "pid-no-match", detail: "content fetch failed",
+        });
+      }
+      continue;
+    }
     const verses = parseVerses(page);
-    const byAid = new Map(verses.map((v) => [v.aid, v]));
-    const byVid = new Map(verses.map((v) => [v.vid, v]));
 
-    const marksByRef = new Map<string, Mark[]>();
-    const notesByRef = new Map<string, Note[]>();
+    const res = assembleUnits(verses, byChapter.get(chapter)!, {
+      inScope: inBook,
+      label: `${spec.name} ${chapter}`,
+      rangeLabel: (refs) => `${refs[0]}–${refs.at(-1)!.split(":").at(-1)}`,
+      unitLabel: (ref) => ref,
+    });
 
-    for (const a of byChapter.get(chapter)!) {
-      const hs = (a.highlights ?? []).filter(inBook);
-      const spanRefs: string[] = [];
-      const spanVerses: { v: Verse; h: Highlight; loc: Located }[] = [];
+    for (const d of res.diags) diags.push({ ...d, unitRef: `${chapter}:${d.unitRef}` });
+    located.push(...res.located.map((r) => ({ ref: r.ref, status: r.status })));
 
-      for (const h of hs) {
-        const v =
-          byAid.get(h.pid) ??
-          byVid.get((h.uri ?? "").match(/\.(p\d+)(?:[?]|$)/)?.[1] ?? "");
-        if (!v) {
-          report.noVerseMatch.push(`${spec.name} ${chapter}: ${h.uri}`);
-          continue;
-        }
-        spanRefs.push(v.ref);
-        if (h.color === "clear") {
-          report.located.push({
-            ref: `${spec.name} ${v.ref}`, color: "clear", style: "-",
-            offsets: "-", status: "no visual mark", sample: "",
-          });
-          spanVerses.push({ v, h, loc: { start: 0, end: 0, substring: "", ok: true } });
-          continue;
-        }
-        const loc = locate(v.text, h.startOffset, h.endOffset);
-        marksByRef.set(v.ref, [
-          ...(marksByRef.get(v.ref) ?? []),
-          { start: loc.start, end: loc.end, color: h.color, style: style(h), substring: loc.substring },
-        ]);
-        spanVerses.push({ v, h, loc });
-        report.located.push({
-          ref: `${spec.name} ${v.ref}`,
-          color: h.color, style: style(h),
-          offsets: `${h.startOffset},${h.endOffset}`,
-          status: loc.ok ? "OK" : `FALLBACK: ${loc.reason}`,
-          sample: loc.substring.slice(0, 60),
-        });
-      }
-
-      const hasText = !!(a.note?.content || a.note?.title);
-      if (!hasText && a.tags.length === 0) continue;
-
-      const anchorRef = spanRefs[0];
-      if (!anchorRef) continue;
-
-      const first = spanVerses[0];
-      const mark =
-        first && first.h.color !== "clear"
-          ? { color: first.h.color, style: style(first.h) }
-          : null;
-
-      const refLabel =
-        spanRefs.length > 1
-          ? `${spanRefs[0]}–${spanRefs.at(-1)!.split(":").at(-1)}`
-          : spanRefs[0]!;
-
-      notesByRef.set(anchorRef, [
-        ...(notesByRef.get(anchorRef) ?? []),
-        {
-          refLabel,
-          mark,
-          isReference: a.type === "reference",
-          title: a.note?.title ?? null,
-          body: parseNote(a.note?.content),
-          tags: a.tags.map((t) => t.name),
-          created: (a.created ?? "").slice(0, 10),
-          spanRefs,
-          // `letter`, and the span-position sort key, filled in below
-          _spanStart: first?.loc.start ?? 0,
-        } as Note & { _spanStart: number },
-      ]);
-
-      for (const t of a.tags) {
-        const [c, vn] = anchorRef.split(":").map(Number);
-        tagEntries.push({
-          tag: t.name,
-          label: `${spec.name} ${anchorRef}`,
-          key: vkey(chapter, anchorRef),
-          sort: [spec.order, c ?? chapter, vn ?? 0],
-        });
-      }
-    }
-
-    // per-verse: order notes by span position, assign a/b letters when >1
-    for (const [ref, notes] of notesByRef) {
-      notes.sort((x, y) => (x as any)._spanStart - (y as any)._spanStart);
-      if (notes.length > 1) {
-        notes.forEach((n, i) => (n.letter = LETTERS[i]));
-        // echo the letter onto the matching mark (first mark at that span start)
-        const marks = marksByRef.get(ref) ?? [];
-        for (const n of notes) {
-          const start = (n as any)._spanStart as number;
-          const m = marks.find((mk) => mk.start === start && !mk.letter);
-          if (m) m.letter = n.letter;
-        }
-      }
-      for (const n of notes) delete (n as any)._spanStart;
-    }
-
-    // shown verses = any with a mark or a note; build runs; gap detection
-    const shownRefs = new Set([...marksByRef.keys(), ...notesByRef.keys()]);
-    const shown = verses
-      .filter((v) => shownRefs.has(v.ref))
-      .sort((a, b) => a.num - b.num);
-
-    const docVerses: DocVerse[] = [];
-    let prevNum: number | null = null;
-    for (const v of shown) {
-      const vmarks = (marksByRef.get(v.ref) ?? []).sort((a, b) => a.start - b.start);
-      docVerses.push({
-        ref: v.ref,
-        num: v.num,
-        runs: segment(v.text, vmarks, v.styles),
-        marks: vmarks,
-        notes: notesByRef.get(v.ref) ?? [],
-        gapBefore: prevNum !== null && v.num - prevNum > 1,
+    for (const { tag, ref } of res.tagRefs) {
+      const [c, v] = ref.split(":").map(Number);
+      tagEntries.push({
+        tag,
+        label: `${spec.name} ${ref}`,
+        key: `${spec.partKey}|${chapter}|${ref}`,
+        sort: [spec.order, c ?? chapter, v ?? 0],
       });
-      prevNum = v.num;
     }
 
     chapters.push({
       book: spec.name,
       chapter,
       reference: `${spec.name} ${chapter}`,
-      verses: docVerses,
+      verses: res.docVerses,
     });
   }
 
+  return { chapters, tagEntries, diags, located };
+}
+
+/** Group already-assembled books into scripture Parts, in canonical order. */
+export function buildScripturePart(
+  partKey: string,
+  partTitle: string,
+  books: { spec: BookSpec; result: BookResult }[],
+): DocPart {
+  const ordered = [...books].sort((a, b) => a.spec.order - b.spec.order);
   return {
-    part: { kind: "scripture", key: partKey, title: partTitle, chapters },
-    report,
-    tagEntries,
+    kind: "scripture",
+    key: partKey,
+    title: partTitle,
+    chapters: ordered.flatMap((b) => b.result.chapters),
   };
 }
