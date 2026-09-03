@@ -155,3 +155,47 @@ Settled, not to be reopened without a concrete problem: Typst; TypeScript;
 local-first; canonical organization; original highlighting; margin notes; tag
 index; bookmarks + hyperlinks; bookmarklet before extension; export/generation
 split.
+
+## Session 3 additions (2026-09-03, after full-corpus validation)
+
+28. **Output = per-Part PDF files by default.** A set: front-matter (title /
+    overview / "The Parts" / abbreviations key / combined tag index) as one file,
+    then one file per Part. Offer **"merge into a single PDF"** as an option for
+    tablet reading. Each Part compiles well under any memory limit; the full
+    single-pass compile needs ~3.5 GB (see docs/m3-validation.md) so per-Part is
+    also what the browser generator must do.
+29. **Mobile phone support is out of scope.** Desktop + iPad only. The bookmarklet
+    (M5) works on both; "Android export" is dropped from the roadmap.
+30. **A person's own words are never altered.** Notes and note titles render
+    verbatim — no abbreviating, correcting, or reflowing. The only transformation
+    is structural HTML → typeset (bold / italic / lists / links / paragraph
+    breaks), which preserves meaning exactly.
+31. **Scripture abbreviations: tag index only.** Official abbreviations from the
+    quad (`Gen.`, `1 Cor.`, `D&C`, `Morm.`, `Abr.`, `JST Gen.`, …) — see
+    src/scripture.ts. The abbreviation implies the volume, so no Part qualifier.
+    Full names everywhere else (running heads, TOC, part titles). A one-page
+    **abbreviations key** goes in the back matter before the tag index. *(key
+    page: TODO)*
+32. **TOC is per-Part, not one combined list.** Master file gets a short "The
+    Parts" page (7 Parts + counts + Tag Index link). Each Part file opens with its
+    own contents:
+    - scripture: book subhead, then marked chapters wrapped ~10 per line, faint
+      dot leader to the page where that line's chapters begin; every chapter a link.
+    - GC: conference label, talks one per line ("Title · Speaker" + page).
+    Chapter-level navigation is covered by the PDF bookmarks (Part→Book→Chapter)
+    and the tag index.
+33. **Headings & titles: Optima.** (Compared 10 faces against the Garamond body;
+    the sans options jarred, Optima's flared humanist forms bridge cleanly.)
+    Applied to: title page, part half-titles, section titles, TOC subheads,
+    chapter headings, GC conference dividers, GC talk titles/bylines, running
+    heads. Serif kept for body, notes (incl. note titles), tag names, margin
+    ref headers. One `#let sans` for easy swap.
+34. **Bug fixed:** `ckey`/`vkey` omitted the book, so `Genesis 1` / `Exodus 1` /
+    `Leviticus 1` collided to one key and every book's chapter links + tag-index
+    entries pointed at Genesis. Keys now include the book name.
+
+### TODO (small, deferrable)
+- Abbreviations key page in the back matter.
+- `/PageMode /UseOutlines` post-process so the bookmark panel auto-opens.
+- Highlights on chapter headings / summaries / talk kickers (~62 annotations) —
+  parse those elements as annotatable units.
