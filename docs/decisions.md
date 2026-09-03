@@ -123,3 +123,35 @@ Nothing in the pipeline changes to flip one.
 - Tag index GC entries point to a PAGE number (part-relative), not a paragraph number.
 - TOC has right-justified part-relative page numbers: scripture BOOK lines, and GC TALK lines.
   (Scripture chapter numbers stay as an inline hyperlinked list, no per-chapter page.)
+
+## Revised milestone sequence (after external review, 2026-09-03)
+
+The review's core point: the prototype proved the *concept*; it has not proven
+*scale*. Retire technical uncertainty on the full ~19,900-annotation corpus
+before building the public interface.
+
+Adopted principles:
+- **Export ≠ generation.** The bookmarklet is an annotation *export utility*.
+  The generator's only contract: "given a valid export file, make the book."
+- **`annotations.json` is a first-class, versioned interchange + preservation
+  format** — documented schema, validation, unknown fields preserved. The JSON
+  is the durable machine artifact; the PDF is the readable one. Offer both.
+- **Observable completeness.** Every run emits a completion report (included /
+  included-with-warnings / failed, by category); the affected annotations are
+  inspectable. No silent failure.
+- **Copyright + API-terms = a formal public-release gate** (not blocking
+  engineering or personal use).
+
+| # | Milestone | Exit criterion |
+|---|---|---|
+| **M3** | Full-corpus validation | Every failure class understood + documented; size/time/memory measured; Typst-WASM stress-tested |
+| **M4** | Stable `annotations.json` format | Generator accepts a documented, versioned input independent of acquisition method |
+| **M5** | Bookmarklet / exporter | A normal user can obtain a valid export without dev tools |
+| **M6** | Browser generator | Upload → options → generate → completeness report → download, all in-browser |
+| **M7** | Public-release readiness | Copyright/terms review, privacy, docs, compat, naming, versioning, support |
+| **M8** | Optional expansion | Browser extension, Android export, CLI, more content types, preservation archive |
+
+Settled, not to be reopened without a concrete problem: Typst; TypeScript;
+local-first; canonical organization; original highlighting; margin notes; tag
+index; bookmarks + hyperlinks; bookmarklet before extension; export/generation
+split.
