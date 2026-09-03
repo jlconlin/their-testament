@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex, type TagEntry, type BookResult } from "../src/assemble.ts";
 import { assembleConferencePart } from "../src/assembleGC.ts";
+import { assembleNotebooksPart } from "../src/notebooks.ts";
 import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "../src/scripture.ts";
 import { renderPdf } from "../src/render.ts";
 import type { Annotation, DocBook, DocPart } from "../src/types.ts";
@@ -110,14 +111,22 @@ async function main() {
   allTags.push(...gc.tagEntries);
   allDiags.push(...gc.diags);
 
+  // ---- 3b. notebooks ------------------------------------------------------
+  console.log(`\n[Notebooks]`);
+  const nb = await assembleNotebooksPart(all, content);
+  if (nb.part.kind === "notebooks" && nb.part.notebooks.length) {
+    parts.push(nb.part);
+    allDiags.push(...nb.diags);
+    console.log(`  ${nb.part.notebooks.length} notebooks`);
+  }
+
   const assembleMs = Date.now() - t0;
 
   // ---- 4. build the doc-model ------------------------------------------------
-  parts.sort((a, b) => {
-    const oa = SCRIPTURE_PARTS.find((p) => p.key === a.key)?.order ?? (a.kind === "gc" ? 90 : 99);
-    const ob = SCRIPTURE_PARTS.find((p) => p.key === b.key)?.order ?? (b.kind === "gc" ? 90 : 99);
-    return oa - ob;
-  });
+  const partOrder = (p: DocPart) =>
+    SCRIPTURE_PARTS.find((sp) => sp.key === p.key)?.order ??
+    (p.kind === "gc" ? 90 : p.kind === "notebooks" ? 95 : 99);
+  parts.sort((a, b) => partOrder(a) - partOrder(b));
   const dates = all.map((a) => a.created).filter(Boolean).sort();
   const tagCount = new Map<string, number>();
   let noteCount = 0;

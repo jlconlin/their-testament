@@ -108,10 +108,10 @@
     if b.t == "p" { render-inline(b.children) }
     else if b.t == "quote" { pad(left: 0.6em, text(style: "italic")[#render-inline(b.children)]) }
     else if b.t == "ul" or b.t == "ol" {
+      set par(spacing: 0.35em, leading: 0.5em)
       for (j, it) in b.items.enumerate() {
-        if j > 0 { linebreak() }
         let marker = if b.t == "ul" { [•] } else { [#(j + 1).] }
-        grid(columns: (1em, 1fr), gutter: 0.3em, marker, render-inline(it))
+        grid(columns: (1.2em, 1fr), column-gutter: 0.3em, marker, render-inline(it))
       }
     }
   }
@@ -241,12 +241,13 @@
     let pl = query(<pm>).filter(x => x.value == pkey(part.key))
     let ploc = if pl.len() > 0 { pl.first().location() } else { none }
     let summary = if part.kind == "scripture" {
-      let bs = part.chapters.map(c => c.book)
-      let books = bs.dedup()
+      let books = part.chapters.map(c => c.book).dedup()
       [#books.len() book#if books.len() != 1 [s], #part.chapters.len() chapters]
-    } else {
+    } else if part.kind == "gc" {
       let n = part.conferences.map(c => c.talks.len()).sum(default: 0)
       [#part.conferences.len() conferences, #n talks]
+    } else {
+      [#part.notebooks.len() collections]
     }
     block(box(width: 100%, {
       let title = text(font: sans, weight: "medium", size: 11pt)[#part.title]
@@ -304,7 +305,7 @@
         })))
       }
     }
-  } else {
+  } else if part.kind == "gc" {
     for conf in part.conferences {
       block(above: 0.6em, below: 0.15em, text(font: sans, size: 9pt, fill: notegray)[#conf.label])
       for talk in conf.talks {
@@ -317,6 +318,18 @@
           if p != none { text(size: 7.5pt, fill: notegray, number-type: "lining")[#p] }
         })))
       }
+    }
+  }
+  if part.kind == "notebooks" {
+    for nb in part.notebooks {
+      let loc = cmOf(part.key + "|" + nb.name)
+      let p = relPage(loc)
+      block(above: 0.4em, below: 0.15em, box(width: 100%, {
+        let body = text(font: sans, size: 9.5pt)[#nb.name]
+        if loc != none { link(loc, body) } else { body }
+        leader
+        if p != none { text(size: 7.5pt, fill: notegray, number-type: "lining")[#p] }
+      }))
     }
   }
 })
@@ -438,6 +451,75 @@
   }
 }
 
+// ---- notebooks (curated collections) --------------------------------------
+
+// full-width verse: notes render inline below, not in a margin
+#let nb-verse(vs) = {
+  set par(hanging-indent: 1.0em, justify: true)
+  if vs.gapBefore { v(0.3em); align(center, text(fill: gapmark, size: 9pt)[⋯]); v(0.3em) }
+  text(size: 8pt, fill: vnumcol)[#vs.num]
+  h(0.4em)
+  for r in vs.runs { render-run(r) }
+  parbreak()
+  for n in vs.notes {
+    pad(left: 1.2em, {
+      set text(size: 8.5pt, fill: notegray)
+      set par(justify: false, hanging-indent: 0pt, leading: 0.5em)
+      if n.title != none { text(style: "italic", weight: "bold")[#n.title]; linebreak() }
+      render-note-body(n.body)
+      if n.tags.len() > 0 {
+        linebreak()
+        text(size: 6.6pt, tracking: 0.08em, fill: tagcol)[#smallcaps(n.tags.join("  ·  "))]
+      }
+    })
+    v(0.3em)
+  }
+}
+
+#let render-notebooks-part(part) = {
+  for (ni, nb) in part.notebooks.enumerate() {
+    heading(level: 2)[#nb.name]
+    [#metadata(part.key + "|" + nb.name)<cm>]
+    [#metadata(nb.name)<rh>]
+    v(if ni == 0 { 0.15in } else { 0.55in })
+    align(center, text(font: sans, size: 14pt, weight: "medium", tracking: 0.06em, fill: rgb("#4a4238"))[#nb.name])
+    if nb.description != none {
+      v(0.18in)
+      pad(x: 0.5in, {
+        set par(justify: false, leading: 0.55em)
+        set text(size: 9pt, style: "italic", fill: notegray)
+        render-note-body(nb.description)
+      })
+    }
+    v(0.32in)
+    for (ei, e) in nb.entries.enumerate() {
+      if ei > 0 {
+        v(0.4em)
+        align(center, box(width: 24%, line(length: 100%, stroke: 0.3pt + gapmark)))
+        v(0.4em)
+      }
+      block(breakable: true, {
+        if e.kind == "text" {
+          set par(justify: false, leading: 0.56em)
+          h(1fr); text(font: sans, size: 6.5pt, fill: tagcol, number-type: "lining")[#e.created]; linebreak()
+          if e.title != none { text(font: sans, size: 9.5pt, weight: "medium")[#e.title]; parbreak() }
+          render-note-body(e.body)
+        } else if e.kind == "passage" {
+          text(font: sans, size: 8pt, tracking: 0.03em, fill: tagcol)[#e.refLabel]
+          parbreak()
+          for v in e.verses { nb-verse(v) }
+        } else if e.kind == "citation" {
+          set par(justify: false, leading: 0.5em)
+          text(font: sans, size: 8.5pt, fill: notegray, style: "italic")[#e.refLabel]
+          if e.note != none {
+            parbreak(); set text(size: 8.5pt, fill: notegray); e.note
+          }
+        }
+      })
+    }
+  }
+}
+
 #for part in doc.parts {
   plain-page({
     heading(level: 1)[#part.title]
@@ -446,7 +528,8 @@
     align(center, text(font: sans, size: 17pt, weight: "medium", tracking: 0.16em)[#upper(part.title)])
   })
   part-toc(part)
-  if part.kind == "scripture" { render-scripture-part(part) }
+  if part.kind == "notebooks" { render-notebooks-part(part) }
+  else if part.kind == "scripture" { render-scripture-part(part) }
   else if part.kind == "gc" { render-gc-part(part) }
 }
 

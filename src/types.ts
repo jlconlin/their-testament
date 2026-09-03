@@ -169,9 +169,28 @@ export interface TagIndexEntry {
   refs: TagRef[];
 }
 
+// Notebooks (Gospel Library "folders") — curated collections -----------------
+
+export type NotebookEntry =
+  | { kind: "text"; title: string | null; body: NoteNode[]; created: string }
+  | {
+      kind: "passage";
+      refLabel: string;        // "Rev. 5:12–14"  |  "Eyring, “Is Not This the Fast” ¶ 7"
+      verses: DocVerse[];      // the passage text + any highlight + note
+      created: string;
+    }
+  | { kind: "citation"; refLabel: string; note: string | null; created: string }; // unavailable source
+
+export interface DocNotebook {
+  name: string;
+  description: NoteNode[] | null; // epigraph, if the notebook opens with a descriptive text entry
+  entries: NotebookEntry[];
+}
+
 export type DocPart =
   | { kind: "scripture"; key: string; title: string; chapters: DocChapter[] }
-  | { kind: "gc"; key: string; title: string; conferences: DocConference[] };
+  | { kind: "gc"; key: string; title: string; conferences: DocConference[] }
+  | { kind: "notebooks"; key: string; title: string; notebooks: DocNotebook[] };
 
 export interface DocBook {
   generatedAt: string;
