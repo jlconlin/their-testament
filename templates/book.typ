@@ -20,7 +20,7 @@
   dark_blue: rgb("#2596FF"), purple: rgb("#9D53FE"), brown: rgb("#C06B45"),
   gray: rgb("#93A0AA"),
 )
-#let sans = "Gill Sans"   // headings & titles (body stays serif)
+#let sans = "Optima"   // headings & titles (body stays serif)
 #let ink = rgb("#1a1712")
 #let notegray = rgb("#544f49")
 #let tagcol = rgb("#8a7f6f")
