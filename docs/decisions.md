@@ -235,6 +235,28 @@ Full spec: [annotations-format.md](annotations-format.md).
     through the envelope; the validation report prints the export's
     version/date/source.
 
+### Open — must resolve before M6 (the browser generator)
+
+- **Font licensing.** Body = Adobe Garamond Pro, headings = Optima — both
+  commercial, cannot be served to the public by a browser app. Need SIL OFL
+  replacements before M6 (EB Garamond is a near drop-in for the body; Optima
+  has no clean OFL clone — pick a face or drop the contrasting heading font).
+  The local/personal build may keep the real fonts, gated on context.
+  *User wants to discuss separately — do not decide yet.*
+
+### Domain / hosting (2026-09-03)
+
+- `theirtestament.com` / `.org` / `.net` all confirmed unregistered.
+- Plan: register `.org` as primary (reads least like an official product),
+  grab `.com` defensively and redirect. WHOIS privacy on. User registers
+  (not something the assistant can do).
+- Hosting: static, free — Cloudflare Pages or GitHub Pages. Serving static
+  files is the only server-side thing in the whole design.
+- The public site is a small **landing page** (what it is, sample spread,
+  3 steps, privacy-first FAQ, visible "not affiliated with the Church"
+  disclaimer, the bookmarklet) wrapped around the **M6 generator**. Not a
+  new milestone.
+
 ### TODO (small, deferrable)
 - Abbreviations key page in the back matter.
 - `/PageMode /UseOutlines` post-process so the bookmark panel auto-opens.
