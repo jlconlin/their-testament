@@ -24,7 +24,7 @@ produce that file works with the generator.
 ## Layout
 
 ```
-web/            the website + the bookmarklet exporter (deployed to GitHub Pages)
+web/            the website + the bookmarklet exporter (static; deployed as-is)
 src/            the generation pipeline (TypeScript)
 templates/      the Typst book template
 scripts/        build & validation entry points
@@ -45,9 +45,10 @@ Fonts for the book are configured per-run; see `docs/decisions.md`.
 
 ## The website
 
-`web/` is a static site — no build step. Deployed to GitHub Pages by
-[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push that
-touches it. To preview locally:
+`web/` is a static site — no build step. Deploy by pointing a static host
+(Cloudflare Pages, Netlify, …) at this repo with output directory `web/`; it
+redeploys on push. `web/_headers` carries the cache/security headers. To preview
+locally:
 
 ```bash
 npm run serve:web        # → http://localhost:8777

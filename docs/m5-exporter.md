@@ -12,10 +12,9 @@ Library annotations out as a `their-testament` `annotations.json`
 | `web/e.js` | the exporter — paginates the Notes API, wraps, downloads |
 | `web/fonts/` | self-hosted Fraunces + EB Garamond (OFL); no third-party font requests |
 | `web/favicon.svg`, `web/og.png` | icon + social-share card |
-| `web/404.html`, `web/CNAME`, `web/.nojekyll`, `web/robots.txt`, `web/sitemap.xml` | GitHub Pages support files |
+| `web/404.html`, `web/robots.txt`, `web/sitemap.xml`, `web/_headers` | static-host support files |
 | `web/bookmarklet.txt` | the generated `javascript:` loader (copy for reference) |
 | `scripts/build-bookmarklet.ts` | generates the loader, injects it into `index.html` |
-| `.github/workflows/pages.yml` | deploys `web/` to GitHub Pages on push |
 
 ## How it works
 
@@ -100,27 +99,29 @@ the second-account test the roadmap calls for:
 - **Rate limiting.** 300 ms between pages, ~20 pages for a large account. If the
   API pushes back (429), we'll need backoff.
 
-## Deploying `web/` to GitHub Pages
+## Deploying `web/`
 
-The site is `web/`, deployed by `.github/workflows/pages.yml` (publishes the
-`web/` folder as the Pages artifact — the rest of the repo is not served).
+The site is the `web/` folder — plain static files, no build step. Host it by
+pointing a static host (Cloudflare Pages, Netlify, …) at the git repo; it
+redeploys on every push to the production branch. Nothing in the repo is
+host-specific except `web/_headers` (Cloudflare Pages / Netlify syntax).
 
-One-time setup:
+**Cloudflare Pages** (git integration — same as a typical company site):
 
-1. Push the repo to GitHub (`jlconlin/their-testament`, public).
-2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
-3. The workflow runs on push; the first run publishes the site.
-4. **Custom domain** (`theirtestament.org`):
-   - `web/CNAME` already contains it.
-   - At the DNS host, add for the apex: four `A` records to `185.199.108.153`,
-     `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (and/or `AAAA` to
-     the `2606:50c0:8000::153` … `8003::153` set). For `www`, a `CNAME` to
-     `jlconlin.github.io`.
-   - Settings → Pages → Custom domain → enter `theirtestament.org`, then tick
-     **Enforce HTTPS** once the cert issues.
-5. The bookmarklet host is already `https://theirtestament.org`. If testing on
-   the `*.github.io` URL first, run
-   `npx tsx scripts/build-bookmarklet.ts --host https://jlconlin.github.io/their-testament`
-   and commit, then switch back before launch.
+1. Push the repo anywhere Cloudflare can read (GitHub, GitLab, …).
+2. Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git →
+   pick the repo.
+3. Build settings: **Framework preset: None**, **Build command: (empty)**,
+   **Build output directory: `web`**.
+4. Deploy. Every push to the production branch redeploys.
+5. **Custom domain:** Pages project → Custom domains → add `theirtestament.org`.
+   If the domain's DNS is on Cloudflare the records are added automatically;
+   otherwise add the `CNAME` Cloudflare shows you at the DNS host (Squarespace).
+   TLS is automatic.
 
-`web/.nojekyll` disables Jekyll so the `fonts/` dir and dotfiles serve as-is.
+The bookmarklet host is already `https://theirtestament.org`. To test on the
+`*.pages.dev` preview URL first, run
+`npx tsx scripts/build-bookmarklet.ts --host https://<project>.pages.dev`,
+commit, then switch back before launch.
+
+`web/_headers` sets long-lived caching for `fonts/` and a few security headers.

@@ -257,11 +257,14 @@ Full spec: [annotations-format.md](annotations-format.md).
     generator drops into the same page/origin. Explicitly *not* the official
     Church aesthetic (no navy/gold, no crest, personal first-person voice,
     disclaimer in header + footer + FAQ).
-43. **Deploy target: GitHub Pages** (changed from Cloudflare Pages —
-    user wants to serve straight from the GitHub repo). `.github/workflows/pages.yml`
-    publishes `web/` only; `web/.nojekyll`; `web/CNAME` = `theirtestament.org`.
-    DNS: apex A records → GitHub Pages IPs, `www` CNAME → `jlconlin.github.io`.
-    Repo: `jlconlin/their-testament`, public. MIT `LICENSE`, root `README.md`.
+43. **Deploy: git-repo → static host, host-driven** (not GitHub Actions /
+    GitHub Pages — "directly from a git repository" meant repo-watched, the way
+    the user's company site works). Connect a static host (Cloudflare Pages is
+    the plan) to the repo: framework none, no build command, output dir `web/`;
+    redeploys on push. `web/_headers` (Cloudflare/Netlify syntax) for font
+    caching + security headers. Custom domain configured in the host dashboard,
+    not a `CNAME` file. Repo `jlconlin/their-testament`; MIT `LICENSE`, root
+    `README.md`.
 44. Still to verify on the first live run (a real login): `start` index base,
     the exact response wrapper, iPad Safari install, rate-limit behaviour.
 45. **`docs/m3-validation.md` and `docs/project-overview.md` hold aggregate
@@ -285,9 +288,10 @@ Full spec: [annotations-format.md](annotations-format.md).
 - **`theirtestament.org` registered (Squarespace, 2026-09-03).** `.com`/`.net`
   were also free; `.org` chosen as primary (reads least like an official
   product).
-- Hosting: **GitHub Pages**, static, free, served from the repo (`web/` folder
-  via Actions). Serving static files is the only server-side thing in the whole
-  design. DNS at Squarespace points the apex at GitHub's Pages IPs.
+- Hosting: **static host watching the git repo** (Cloudflare Pages planned),
+  output dir `web/`, no build step, redeploy on push. Serving static files is
+  the only server-side thing in the whole design. Custom domain + TLS handled
+  by the host; DNS at Squarespace (or moved to Cloudflare).
 - The public site is a small **landing page** (what it is, sample spread,
   3 steps, privacy-first FAQ, visible "not affiliated with the Church"
   disclaimer, the bookmarklet) wrapped around the **M6 generator**. Not a

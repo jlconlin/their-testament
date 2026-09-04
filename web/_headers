@@ -1,0 +1,13 @@
+# Cloudflare Pages / Netlify header rules for this static site.
+
+/fonts/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/og.png
+  Cache-Control: public, max-age=86400
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+  Permissions-Policy: interest-cohort=()

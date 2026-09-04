@@ -13,8 +13,8 @@ data/cache/
 secrets/
 *.token
 
-# Web — local test scaffolding
-web/_*
+# Web — local test scaffolding (but NOT _headers / _redirects, which deploy)
+web/_*.html
 
 # Python (legacy)
 __pycache__/
