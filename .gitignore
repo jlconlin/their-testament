@@ -13,6 +13,9 @@ data/cache/
 secrets/
 *.token
 
+# Web — local test scaffolding
+web/_*
+
 # Python (legacy)
 __pycache__/
 *.pyc

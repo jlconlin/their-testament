@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Their Testament</title>
+<meta name="description" content="Turn your Gospel Library highlights, notes, and tags into a typeset keepsake book.">
+<style>
+  :root {
+    --bg: #faf7f0;
+    --ink: #241f19;
+    --muted: #6b6153;
+    --rule: #e0d8c7;
+    --accent: #7a5c3e;
+    --card: #fffdf8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1a17;
+      --ink: #ece7dd;
+      --muted: #a49a88;
+      --rule: #3a352d;
+      --accent: #c8a37a;
+      --card: #262320;
+    }
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
+  header { text-align: center; margin-bottom: 3rem; }
+  h1 {
+    font-size: 2.4rem; letter-spacing: 0.01em; margin: 0 0 0.4rem;
+    font-weight: 600;
+  }
+  .tagline { color: var(--muted); font-size: 1.15rem; margin: 0; }
+  h2 {
+    font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 3rem 0 1rem; font-weight: 600;
+  }
+  p { margin: 0 0 1rem; }
+  a { color: var(--accent); }
+  .card {
+    background: var(--card); border: 1px solid var(--rule); border-radius: 12px;
+    padding: 1.5rem 1.75rem;
+  }
+  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
+  ol.steps > li {
+    position: relative; padding: 0 0 1.5rem 3rem; counter-increment: step;
+  }
+  ol.steps > li:last-child { padding-bottom: 0; }
+  ol.steps > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: -0.1rem;
+    width: 2rem; height: 2rem; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    display: grid; place-items: center; font-size: 0.95rem; font-weight: 600;
+  }
+  .bookmarklet-row {
+    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    margin: 0.5rem 0 0.25rem;
+  }
+  a.bookmarklet {
+    display: inline-block; padding: 0.55rem 1.1rem; border-radius: 8px;
+    background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
+    border: 1px solid var(--accent); cursor: grab;
+  }
+  a.bookmarklet:active { cursor: grabbing; }
+  .hint { color: var(--muted); font-size: 0.95rem; }
+  .disclaimer {
+    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule);
+    color: var(--muted); font-size: 0.9rem;
+  }
+  code {
+    background: var(--rule); padding: 0.1em 0.35em; border-radius: 4px;
+    font-size: 0.9em;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Their Testament</h1>
+    <p class="tagline">A typeset keepsake of the scriptures someone marked.</p>
+  </header>
+
+  <p>
+    Their Testament turns a lifetime of Gospel Library highlights, margin notes, and
+    tags into a printed-quality PDF — every marked verse shown in context, in its
+    original highlight color, with the notes set in the margin beside it.
+  </p>
+  <p>
+    It runs entirely in your browser. Your annotations are never uploaded to a server —
+    this site doesn't have one.
+  </p>
+
+  <h2>Step one — get your annotations</h2>
+  <div class="card">
+    <ol class="steps">
+      <li>
+        Drag this button to your bookmarks bar:
+        <div class="bookmarklet-row">
+          <a class="bookmarklet" href="javascript:(function(){var%20d=document,s=d.createElement('script');s.src='https://theirtestament.org/e.js?v='+Date.now();s.onerror=function(){alert('Their%20Testament:%20the%20exporter%20could%20not%20load.%20Check%20your%20connection%20and%20try%20again.')};(d.body||d.documentElement).appendChild(s)})();">📖 Export my annotations</a>
+          <span class="hint">(drag it — don't click it here)</span>
+        </div>
+      </li>
+      <li>
+        Go to <a href="https://www.churchofjesuschrist.org/study" target="_blank" rel="noopener">churchofjesuschrist.org</a>
+        and sign in. Open anything under <strong>Study</strong> — a chapter, a talk, your notebook.
+      </li>
+      <li>
+        Click the <strong>Export my annotations</strong> bookmark. A small panel appears and
+        pages through your notes.
+      </li>
+      <li>
+        When it finishes it saves a file called
+        <code>their-testament-annotations-<em>date</em>.json</code> to your downloads.
+        That file <em>is</em> your data — keep it safe.
+      </li>
+    </ol>
+  </div>
+
+  <h2>Step two — make the book</h2>
+  <p>
+    The in-browser book generator is still being built. For now, send your
+    <code>.json</code> file to whoever is putting the keepsake together and they'll
+    typeset it for you.
+  </p>
+
+  <h2>Is this private?</h2>
+  <p>
+    Yes. The bookmarklet reads only your own annotations, using the session you're
+    already signed in to, and hands them straight to your browser's download. Nothing
+    is transmitted to this site or anywhere else. The saved <code>.json</code> file
+    stays on your computer until you choose to share it.
+  </p>
+
+  <p class="disclaimer">
+    Their Testament is an independent project. It is not affiliated with, endorsed by,
+    or connected to The Church of Jesus Christ of Latter-day Saints or its Gospel
+    Library app. "Gospel Library" is a product of the Church.
+  </p>
+
+</div>
+</body>
+</html>

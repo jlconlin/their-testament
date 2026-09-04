@@ -6,6 +6,10 @@
   "description": "Turn Gospel Library annotations into a typeset keepsake PDF.",
   "scripts": {
     "build:job": "tsx scripts/build-job.ts",
+    "build:bookmarklet": "tsx scripts/build-bookmarklet.ts",
+    "check:export": "tsx scripts/check-export.ts",
+    "validate": "tsx scripts/validate.ts",
+    "serve:web": "python3 -m http.server 8777 --directory web",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

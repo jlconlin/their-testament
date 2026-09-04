@@ -235,6 +235,28 @@ Full spec: [annotations-format.md](annotations-format.md).
     through the envelope; the validation report prints the export's
     version/date/source.
 
+## M5 — annotation exporter (built, 2026-09-03) — see [m5-exporter.md](m5-exporter.md)
+
+40. **Loader bookmarklet, not inlined.** The bookmark is a ~270-char stub that
+    injects `https://theirtestament.org/e.js`. Confirmed safe: Church study
+    pages send a CSP with only `frame-src` + `style-src` — no `script-src` /
+    `default-src` — so injected external scripts run and same-origin Notes API
+    `fetch` is unrestricted. Upside: `e.js` updates with no re-install
+    (`?v=Date.now()` cache-bust).
+41. **Exporter does annotations only.** Pages `annotationsWithMeta`
+    (`setId=all&type=highlight,reference,journal&numberToReturn=1000`), dedupes
+    by `annotationId`, wraps in a v1 envelope, downloads
+    `their-testament-annotations-<date>.json`. Content fetching stays in M6.
+    Runs entirely client-side; `e.js` is a static file, no backend.
+42. **Minimal landing page now, generator later.** `web/index.html` = what it
+    is + 4-step install + privacy answer + visible "not affiliated with the
+    Church" disclaimer. The M6 generator drops into the same page/origin.
+43. **Deploy target: Cloudflare Pages**, output dir `web/`, no build step,
+    custom domain `theirtestament.org` (registered at Squarespace 2026-09-03,
+    DNS to be moved to Cloudflare).
+44. Still to verify on the first live run (a real login): `start` index base,
+    the exact response wrapper, iPad Safari install, rate-limit behaviour.
+
 ### Open — must resolve before M6 (the browser generator)
 
 - **Font licensing.** Body = Adobe Garamond Pro, headings = Optima — both
@@ -246,11 +268,11 @@ Full spec: [annotations-format.md](annotations-format.md).
 
 ### Domain / hosting (2026-09-03)
 
-- `theirtestament.com` / `.org` / `.net` all confirmed unregistered.
-- Plan: register `.org` as primary (reads least like an official product),
-  grab `.com` defensively and redirect. WHOIS privacy on. User registers
-  (not something the assistant can do).
-- Hosting: static, free — Cloudflare Pages or GitHub Pages. Serving static
+- **`theirtestament.org` registered (Squarespace, 2026-09-03).** `.com`/`.net`
+  were also free; `.org` chosen as primary (reads least like an official
+  product). Next: move DNS to Cloudflare (add as a site on the free plan,
+  repoint nameservers at Squarespace) so Cloudflare Pages "just works".
+- Hosting: static, free — Cloudflare Pages, output dir `web/`. Serving static
   files is the only server-side thing in the whole design.
 - The public site is a small **landing page** (what it is, sample spread,
   3 steps, privacy-first FAQ, visible "not affiliated with the Church"
