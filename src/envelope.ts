@@ -24,9 +24,12 @@
 
 import type { Annotation } from "./types.ts";
 
-export const ENVELOPE_FORMAT = "gospel-library-preservation";
+export const ENVELOPE_FORMAT = "their-testament";
 export const ENVELOPE_VERSION = 1;
 export const SUPPORTED_VERSIONS: readonly number[] = [1];
+
+/** Older `format` strings still accepted on read (with a warning). */
+const LEGACY_FORMATS: readonly string[] = ["gospel-library-preservation"];
 
 export interface EnvelopeSource {
   /** "https://www.churchofjesuschrist.org" */
@@ -172,7 +175,11 @@ export function validateEnvelope(raw: unknown): ValidationResult {
   const env = raw as Record<string, unknown>;
 
   if (env.format !== ENVELOPE_FORMAT) {
-    errors.push(`format is ${JSON.stringify(env.format)}, expected ${JSON.stringify(ENVELOPE_FORMAT)}`);
+    if (typeof env.format === "string" && LEGACY_FORMATS.includes(env.format)) {
+      warnings.push(`format ${JSON.stringify(env.format)} is a legacy name; current is ${JSON.stringify(ENVELOPE_FORMAT)}`);
+    } else {
+      errors.push(`format is ${JSON.stringify(env.format)}, expected ${JSON.stringify(ENVELOPE_FORMAT)}`);
+    }
   }
 
   let version: number | null = null;

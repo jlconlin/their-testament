@@ -22,7 +22,7 @@ Validate a file: `npx tsx scripts/check-export.ts <file>`.
 
 ```jsonc
 {
-  "format": "gospel-library-preservation",   // exact string, identifies the file
+  "format": "their-testament",                // exact string, identifies the file
   "version": 1,                               // envelope structure version (integer)
   "exportedAt": "2026-09-02T03:47:22.046Z",   // ISO 8601 instant the export was taken
   "source": {                                 // provenance; all fields optional
@@ -42,10 +42,12 @@ Validate a file: `npx tsx scripts/check-export.ts <file>`.
 
 ### `format`
 
-Always the literal `"gospel-library-preservation"`. This is a machine
-identifier, not the product's public name (see decision 35 in
-[`decisions.md`](decisions.md)); it stays stable so old files keep validating.
-A file whose `format` is anything else is rejected.
+Always the literal `"their-testament"`. This is a machine identifier that
+happens to match the project name (decision 35 in
+[`decisions.md`](decisions.md)); once public it stays stable so old files keep
+validating. The pre-1.0 name `"gospel-library-preservation"` is still accepted
+on read with a warning and normalised to `"their-testament"`. Any other
+`format` is rejected.
 
 ### `version`
 
@@ -124,7 +126,7 @@ warnings, envelope }`.
 **Errors** (file rejected):
 
 - top-level is not an object or array
-- `format` ≠ `"gospel-library-preservation"`
+- `format` is neither `"their-testament"` nor an accepted legacy name
 - `version` missing / not an integer / not in `SUPPORTED_VERSIONS`
 - `annotations` missing or not an array
 - a record is not an object

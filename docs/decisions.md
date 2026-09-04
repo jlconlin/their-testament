@@ -202,16 +202,19 @@ split.
     shaped like an official Church product. Rejected: literary names (not
     recognizable — "Interleaf", "Marginalia", "Selah", …); anything containing
     "Gospel Library" (Church trademark → looks official/affiliated, which the
-    user explicitly wants to avoid). The internal envelope `format` string
-    stays `gospel-library-preservation` for now — a machine identifier, not
-    branding; revisit at M7.
+    user explicitly wants to avoid).
+35a. The envelope `format` identifier is **`their-testament`** (matches the
+    name). Changed from the pre-1.0 `gospel-library-preservation`, which is
+    still accepted on read (warning) and normalised. Safe to rename now —
+    nothing public consumes it yet. The npm package name is a separate,
+    lower-stakes string; leave it until M7.
 
 ## M4 — stable `annotations.json` format (built, 2026-09-03)
 
 Full spec: [annotations-format.md](annotations-format.md).
 
 36. **Versioned envelope around the raw records.** `{ format:
-    "gospel-library-preservation", version: 1, exportedAt, source, counts,
+    "their-testament", version: 1, exportedAt, source, counts,
     annotations: [ …raw Church v3 records… ] }`. The records keep the Church's
     exact shape — nothing renamed, flattened, or dropped; unknown/future fields
     round-trip untouched. `version` tracks only the envelope's own structure,
