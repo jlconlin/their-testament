@@ -1,13 +1,13 @@
 // Milestone 1 — the Old Testament Part, Job only, end to end.
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex } from "../src/assemble.ts";
 import { renderPdf } from "../src/render.ts";
+import { loadExport } from "./_data.ts";
 import type { Annotation, DocBook } from "../src/types.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
-const RAW = resolve(ROOT, "data/raw/2026-09-02/annotations.json");
 
 function jobStats(anns: Annotation[]) {
   const dates = anns.map((a) => a.created).filter(Boolean).sort();
@@ -30,7 +30,7 @@ function jobStats(anns: Annotation[]) {
 }
 
 async function main() {
-  const all: Annotation[] = JSON.parse(readFileSync(RAW, "utf8"));
+  const all: Annotation[] = loadExport().annotations;
   const job = all.filter((a) =>
     (a.highlights ?? []).some((h) => /\/scriptures\/ot\/job\/\d+/.test(h.uri ?? "")),
   );

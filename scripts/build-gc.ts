@@ -1,17 +1,17 @@
 // Milestone 2 — the General Conference Part, April 2015 only.
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
 import { assembleConferencePart } from "../src/assembleGC.ts";
 import { mergeTagIndex } from "../src/assemble.ts";
 import { renderPdf } from "../src/render.ts";
+import { loadExport } from "./_data.ts";
 import type { Annotation, DocBook } from "../src/types.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
-const RAW = resolve(ROOT, "data/raw/2026-09-02/annotations.json");
 
 async function main() {
-  const all: Annotation[] = JSON.parse(readFileSync(RAW, "utf8"));
+  const all: Annotation[] = loadExport().annotations;
   const gc = all.filter((a) =>
     (a.highlights ?? []).some((h) => /\/general-conference\/2015\/04\//.test(h.uri ?? "")),
   );

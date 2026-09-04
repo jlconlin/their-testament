@@ -194,6 +194,44 @@ split.
     `Leviticus 1` collided to one key and every book's chapter links + tag-index
     entries pointed at Genesis. Keys now include the book name.
 
+35. **Name: "Their Testament"** (working name; final call still sits at the M7
+    branding gate). Rationale: *testament* means both scripture (Old / New
+    Testament) and a personal declaration of belief left to those who follow —
+    the book is exactly that. Recognizable for what it does (someone else's
+    marked scriptures), a little clever via the double meaning, and not
+    shaped like an official Church product. Rejected: literary names (not
+    recognizable — "Interleaf", "Marginalia", "Selah", …); anything containing
+    "Gospel Library" (Church trademark → looks official/affiliated, which the
+    user explicitly wants to avoid). The internal envelope `format` string
+    stays `gospel-library-preservation` for now — a machine identifier, not
+    branding; revisit at M7.
+
+## M4 — stable `annotations.json` format (built, 2026-09-03)
+
+Full spec: [annotations-format.md](annotations-format.md).
+
+36. **Versioned envelope around the raw records.** `{ format:
+    "gospel-library-preservation", version: 1, exportedAt, source, counts,
+    annotations: [ …raw Church v3 records… ] }`. The records keep the Church's
+    exact shape — nothing renamed, flattened, or dropped; unknown/future fields
+    round-trip untouched. `version` tracks only the envelope's own structure,
+    never the Church's field changes.
+37. **Validation: strict envelope + record identity, lenient on the rest.**
+    Errors only for: bad `format`, unsupported `version`, `annotations` not an
+    array, a record missing a string `annotationId`, a non-array
+    `highlights`/`tags`/`folders`. Everything else is a warning — the generator's
+    job is to survive messy records (M3: 99.08 % clean, rest reported), not the
+    loader's to reject them.
+38. **Bare legacy arrays still load** (wrapped as v1 + warning) so old dumps and
+    raw dev-tools pastes work. Real envelopes preferred — only they carry
+    `exportedAt` + `source`, which preservation needs.
+39. Files: `src/envelope.ts` (browser-safe: types, `wrapAnnotations`,
+    `validateEnvelope`, `readEnvelope`). Scripts: `check-export.ts` (validate +
+    report), `wrap-export.ts` (bare → envelope), `_data.ts` (shared loader,
+    prefers `export.json`). `validate.ts`/`build-job.ts`/`build-gc.ts` now read
+    through the envelope; the validation report prints the export's
+    version/date/source.
+
 ### TODO (small, deferrable)
 - Abbreviations key page in the back matter.
 - `/PageMode /UseOutlines` post-process so the bookmark panel auto-opens.

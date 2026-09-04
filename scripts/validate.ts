@@ -3,7 +3,7 @@
 //   npx tsx scripts/validate.ts            # parse + locate every in-scope annotation, write a report
 //   npx tsx scripts/validate.ts --render   # also typeset the full book and measure size/time/memory
 //
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 import { ContentClient } from "../src/contentApi.ts";
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex, type TagEntry, type BookResult } from "../src/assemble.ts";
@@ -11,11 +11,11 @@ import { assembleConferencePart } from "../src/assembleGC.ts";
 import { assembleNotebooksPart } from "../src/notebooks.ts";
 import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "../src/scripture.ts";
 import { renderPdf } from "../src/render.ts";
+import { loadExport } from "./_data.ts";
 import type { Annotation, DocBook, DocPart } from "../src/types.ts";
 import type { Diag } from "../src/units.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
-const RAW = resolve(ROOT, "data/raw/2026-09-02/annotations.json");
 const OUT = resolve(ROOT, "out/validate");
 const RENDER = process.argv.includes("--render");
 
@@ -25,7 +25,8 @@ const pct = (n: number, d: number) => (d ? ((100 * n) / d).toFixed(2) + "%" : "â
 async function main() {
   mkdirSync(OUT, { recursive: true });
   const t0 = Date.now();
-  const all: Annotation[] = JSON.parse(readFileSync(RAW, "utf8"));
+  const exportFile = loadExport();
+  const all: Annotation[] = exportFile.annotations;
 
   // ---- 1. classify every annotation -------------------------------------------
   const scope = {
@@ -179,6 +180,11 @@ async function main() {
   L.push("FULL-CORPUS VALIDATION REPORT");
   L.push(`generated ${new Date().toISOString()}`);
   L.push("=".repeat(72), "");
+  L.push("EXPORT");
+  L.push(`  envelope version            ${exportFile.version}`);
+  L.push(`  exportedAt                  ${exportFile.exportedAt}`);
+  L.push(`  source                      ${JSON.stringify(exportFile.source)}`);
+  L.push("");
   L.push("SCOPE");
   L.push(`  total annotations           ${all.length}`);
   L.push(`  in scope (scripture + GC)   ${inScopeCount}   (${pct(inScopeCount, all.length)})`);
