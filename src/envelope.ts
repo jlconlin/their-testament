@@ -16,8 +16,8 @@
 //     annotation field.
 //   * Validation is strict about the envelope and about each record's
 //     identity (`annotationId`), lenient about everything else — messy
-//     records are the generator's job to survive (see docs/m3-validation.md),
-//     not the loader's job to reject.
+//     records are the generator's job to survive (full-corpus validation
+//     bore this out), not the loader's job to reject.
 //
 // Spec: docs/annotations-format.md
 // ---------------------------------------------------------------------------

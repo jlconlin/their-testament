@@ -162,8 +162,8 @@ split.
     overview / "The Parts" / abbreviations key / combined tag index) as one file,
     then one file per Part. Offer **"merge into a single PDF"** as an option for
     tablet reading. Each Part compiles well under any memory limit; the full
-    single-pass compile needs ~3.5 GB (see docs/m3-validation.md) so per-Part is
-    also what the browser generator must do.
+    single-pass compile needs ~3.5 GB (measured on the full-corpus run) so
+    per-Part is also what the browser generator must do.
 29. **Mobile phone support is out of scope.** Desktop + iPad only. The bookmarklet
     (M5) works on both; "Android export" is dropped from the roadmap.
 30. **A person's own words are never altered.** Notes and note titles render
@@ -267,12 +267,13 @@ Full spec: [annotations-format.md](annotations-format.md).
     `README.md`.
 44. Still to verify on the first live run (a real login): `start` index base,
     the exact response wrapper, iPad Safari install, rate-limit behaviour.
-45. **`docs/m3-validation.md` and `docs/project-overview.md` hold aggregate
-    stats about the family member's real annotation corpus** (counts, note-length
-    distribution, year breakdown — no note text or verse lists). Scrubbed the one
-    hard identifier (personId) from `annotations-format.md`. Before making the
-    repo public, decide whether those two aggregate-stats docs stay or move to a
-    git-ignored `docs/private/`.
+45. **Public repo = `jlconlin/their-testament`.** Kept out of it, on purpose:
+    `data/raw/` + `data/cache/` (always gitignored); `docs/private/` — the M3
+    validation write-up and the old project-overview doc, which carry aggregate
+    stats about the real corpus (counts, note-length distribution). Git history
+    was rewritten before the first push to scrub a Church account ID and the
+    sample record IDs from `annotations-format.md`, and to drop the two
+    `docs/private/` files entirely.
 
 ### Open — must resolve before M6 (the browser generator)
 

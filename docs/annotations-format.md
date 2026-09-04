@@ -113,8 +113,7 @@ A record the generator relies on looks like:
 ```
 
 Field semantics (offsets, the `clear` colour, the `style` misnomer, verse-ref
-derivation) are documented in [`src/types.ts`](../src/types.ts) and
-[`m3-validation.md`](m3-validation.md).
+derivation) are documented in [`src/types.ts`](../src/types.ts).
 
 ---
 
@@ -143,9 +142,9 @@ warnings, envelope }`.
 - a date field is not ISO 8601
 
 The philosophy: strict on the envelope and on record **identity**; lenient on
-everything else. Messy records are the generator's job to survive — M3 proved it
-reconstructs 99.08 % of the real corpus cleanly and reports the rest — not the
-loader's job to reject.
+everything else. Messy records are the generator's job to survive — full-corpus
+validation reconstructs the large majority cleanly and reports the rest — not
+the loader's job to reject.
 
 ### Legacy bare arrays
 

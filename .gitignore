@@ -26,3 +26,6 @@ __pycache__/
 *.log
 *.fls
 *.fdb_latexmk
+
+# Local-only working docs (aggregate stats on real corpus)
+docs/private/
