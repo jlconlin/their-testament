@@ -29,12 +29,12 @@ Validate a file: `npx tsx scripts/check-export.ts <file>`.
     "origin": "https://www.churchofjesuschrist.org",
     "api": "study/api/v3/annotationsWithMeta",
     "locale": "eng",
-    "personId": "0000000000000000",
+    "personId": "0000000000000000",           // the Church person id (also in every record)
     "exporter": "their-testament-bookmarklet/0.1"
   },
   "counts": {                                 // advisory; the generator recomputes
-    "total": 19872,
-    "byType": { "highlight": 19663, "reference": 190, "journal": 19 }
+    "total": 12043,
+    "byType": { "highlight": 11890, "reference": 140, "journal": 13 }
   },
   "annotations": [ /* raw Church annotation records, unmodified — see below */ ]
 }
@@ -89,17 +89,17 @@ A record the generator relies on looks like:
 
 ```jsonc
 {
-  "annotationId": "00000000-…",          // REQUIRED — stable identity
+  "annotationId": "00000000-0000-0000-0000-000000000000",  // REQUIRED — stable identity
   "type": "highlight",                    // "highlight" | "reference" | "journal" | …
-  "created": "2026-09-02T03:47:21.505Z",
-  "lastUpdated": "2026-09-02T03:47:37.746Z",
+  "created": "2024-05-01T12:00:00.000Z",
+  "lastUpdated": "2024-05-01T12:00:30.000Z",
   "locale": "eng",
   "docId": "000000000",
-  "uri": "/general-conference/2026/04/18becerra",
+  "uri": "/scriptures/bofm/alma/32",
   "note": { "title": "…", "content": "<p>…</p>" },   // optional
   "highlights": [                                     // optional; [] for a pure note
     {
-      "uri": "/general-conference/2026/04/18becerra.p_fzcZS",
+      "uri": "/scriptures/bofm/alma/32.p21",
       "pid": "000000000",
       "color": "red",                    // 11 values incl. "clear" (= no visual mark)
       "style": "red-underline",           // present ⇒ underline; absent ⇒ fill

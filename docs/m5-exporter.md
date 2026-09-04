@@ -8,11 +8,14 @@ Library annotations out as a `their-testament` `annotations.json`
 
 | file | what |
 |---|---|
-| `web/index.html` | landing page + the "drag me" bookmarklet + privacy / disclaimer |
+| `web/index.html` | the landing page — hero, sample spreads, how-it-works, privacy, FAQ; the "drag me" bookmarklet lives here |
 | `web/e.js` | the exporter — paginates the Notes API, wraps, downloads |
+| `web/fonts/` | self-hosted Fraunces + EB Garamond (OFL); no third-party font requests |
+| `web/favicon.svg`, `web/og.png` | icon + social-share card |
+| `web/404.html`, `web/CNAME`, `web/.nojekyll`, `web/robots.txt`, `web/sitemap.xml` | GitHub Pages support files |
 | `web/bookmarklet.txt` | the generated `javascript:` loader (copy for reference) |
 | `scripts/build-bookmarklet.ts` | generates the loader, injects it into `index.html` |
-| `web/_selftest.html` | offline round-trip test of `e.js` (git-ignored) |
+| `.github/workflows/pages.yml` | deploys `web/` to GitHub Pages on push |
 
 ## How it works
 
@@ -62,13 +65,12 @@ redeployed `e.js` is picked up immediately — no re-install.
 
 ## Testing
 
-**Offline** (no account needed) — checks pagination, dedup, tolerant wrapper
-parsing, envelope shape:
-
-```bash
-cd web && python3 -m http.server 8777
-# open http://localhost:8777/_selftest.html  → expect "PASS ✓"
-```
+**Offline** — `e.js` was verified with a temporary harness that feeds it
+fabricated annotations (mixed response-wrapper shapes, multiple pages) and
+checks pagination, de-duplication, and the resulting envelope. 4,321 fake
+records across 5 pages round-tripped clean. The harness is not kept in the repo
+(re-create under `web/_*`, which is git-ignored, if the fetch/paginate logic
+changes).
 
 **Live** (needs a real churchofjesuschrist.org login) — the real proof, and
 the second-account test the roadmap calls for:
@@ -98,12 +100,27 @@ the second-account test the roadmap calls for:
 - **Rate limiting.** 300 ms between pages, ~20 pages for a large account. If the
   API pushes back (429), we'll need backoff.
 
-## Deploying `web/` to Cloudflare Pages
+## Deploying `web/` to GitHub Pages
 
-1. Cloudflare dashboard → Workers & Pages → Create → Pages → Connect to Git
-   (or Direct Upload).
-2. Build settings: **no build command**, output directory `web`.
-3. Add the custom domain `theirtestament.org` (Pages → Custom domains). If the
-   domain's DNS is on Cloudflare the record is added automatically.
-4. Re-run `build-bookmarklet.ts` with the final host and redeploy so the
-   landing page ships the right loader.
+The site is `web/`, deployed by `.github/workflows/pages.yml` (publishes the
+`web/` folder as the Pages artifact — the rest of the repo is not served).
+
+One-time setup:
+
+1. Push the repo to GitHub (`jlconlin/their-testament`, public).
+2. Repo **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+3. The workflow runs on push; the first run publishes the site.
+4. **Custom domain** (`theirtestament.org`):
+   - `web/CNAME` already contains it.
+   - At the DNS host, add for the apex: four `A` records to `185.199.108.153`,
+     `185.199.109.153`, `185.199.110.153`, `185.199.111.153` (and/or `AAAA` to
+     the `2606:50c0:8000::153` … `8003::153` set). For `www`, a `CNAME` to
+     `jlconlin.github.io`.
+   - Settings → Pages → Custom domain → enter `theirtestament.org`, then tick
+     **Enforce HTTPS** once the cert issues.
+5. The bookmarklet host is already `https://theirtestament.org`. If testing on
+   the `*.github.io` URL first, run
+   `npx tsx scripts/build-bookmarklet.ts --host https://jlconlin.github.io/their-testament`
+   and commit, then switch back before launch.
+
+`web/.nojekyll` disables Jekyll so the `fonts/` dir and dotfiles serve as-is.

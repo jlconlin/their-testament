@@ -1,73 +1,72 @@
-# Gospel Library Preservation
+# Their Testament
 
-Turn a person's Gospel Library annotations (highlights, notes, tags) into a
-beautifully typeset PDF book — their marked verses and paragraphs reproduced in
-the original highlight colors, with their notes set in the margin beside the text
-they belong to.
+Turn a lifetime of Gospel Library annotations — highlights, margin notes, tags —
+into a typeset keepsake **book**. Every verse someone marked, shown in context and
+in the color they chose; every note beside it, in their own words, unedited;
+ordered like scripture, with a table of contents and a tag index.
 
-Not a data dump. A book — meant to be read, kept, and printed.
+**[theirtestament.org](https://theirtestament.org)** · an independent project,
+not affiliated with The Church of Jesus Christ of Latter-day Saints.
 
-See [`docs/project-overview.md`](docs/project-overview.md) for the full picture
-and [`docs/decisions.md`](docs/decisions.md) for the design-decision log.
+---
 
-## Status
+## How it's split
 
-| | |
-|---|---|
-| Scripture rendering | **working** — validated on the book of Job (44/44 marks) |
-| General Conference rendering | **working** — validated on April 2015 (299/299 marks) |
-| Full-corpus validation | next (see milestones) |
-| Web generator + bookmarklet exporter | designed, not built |
+| half | what | where |
+|---|---|---|
+| **Acquisition** | A bookmarklet that reads your annotations (with your own login, on the Church's site) and saves them as one `annotations.json` file. | [`web/`](web/) |
+| **Generation** | Given a valid `annotations.json`, builds the PDF. Runs the pipeline in `src/`, typesets with [Typst](https://typst.app). | [`src/`](src/), [`templates/`](templates/) |
 
-## Pipeline
-
-```
-annotations.json ─┐
-                  ├─►  fetch     pull + parse the referenced scripture/talk text
-Church content ───┘             (public content API, cached)
-   (fetched)          locate    map Gospel Library word offsets → character spans
-                      assemble  build a render-ready document model (JSON)
-                      typeset    Typst → PDF
-```
-
-- **Language:** TypeScript (so it can ship to the browser later).
-- **Engine:** Typst (compiles to WASM; single small binary; fast).
-- Every design choice is a config flag with a chosen default.
+The file that connects them is a documented, versioned interchange format:
+[`docs/annotations-format.md`](docs/annotations-format.md). Anything that can
+produce that file works with the generator.
 
 ## Layout
 
-| path | |
-|---|---|
-| `src/`              | pipeline modules (`verses`, `talk`, `locate`, `noteHtml`, `segment`, `units`, `assemble`, `assembleGC`, `contentApi`, `render`) |
-| `templates/book.typ`| the Typst book template |
-| `scripts/build-job.ts`, `build-gc.ts` | milestone build entry points |
-| `data/raw/`         | archived annotation exports, one dir per pull (gitignored) |
-| `data/cache/content/` | fetched Church content (gitignored) |
-| `out/`              | generated PDFs + validation reports (gitignored) |
-| `docs/`             | overview + decision log |
+```
+web/            the website + the bookmarklet exporter (deployed to GitHub Pages)
+src/            the generation pipeline (TypeScript)
+templates/      the Typst book template
+scripts/        build & validation entry points
+docs/           design decisions, format spec, validation results
+```
 
-## Running
+## Running the generator (developer)
 
 ```bash
 npm install
-npm run build:job    # → out/job/job.pdf
-npx tsx scripts/build-gc.ts   # → out/gc/gc.pdf
+npx tsx scripts/check-export.ts path/to/annotations.json   # validate an export
+npx tsx scripts/validate.ts --render                        # build the full book
+npx tsx scripts/build-job.ts                                # build one book (Job)
 ```
 
-Requires the `typst` CLI on PATH and Adobe Garamond Pro installed (font choice
-not yet finalized).
+Needs [Typst](https://github.com/typst/typst) on PATH (`brew install typst`).
+Fonts for the book are configured per-run; see `docs/decisions.md`.
 
-## Milestones (revised after external review)
+## The website
 
-1. **Full-corpus validation** — run all ~19,900 annotations; classify every
-   failure; measure size / time / memory; Typst-WASM stress test.
-2. **Stable `annotations.json` interchange format** — documented, versioned,
-   validated; unknown fields preserved.
-3. **Bookmarklet / exporter** — the simplest reliable way to get annotations out
-   of Gospel Library, producing the standard interchange file.
-4. **Browser generator** — the public static site: upload → options → generate →
-   completeness report → download.
-5. **Public-release readiness** — copyright + API-terms review, privacy, docs,
-   compatibility, naming.
-6. **Optional expansion** — browser extension, Android export, CLI, more content
-   types, preservation archive.
+`web/` is a static site — no build step. Deployed to GitHub Pages by
+[`.github/workflows/pages.yml`](.github/workflows/pages.yml) on every push that
+touches it. To preview locally:
+
+```bash
+npm run serve:web        # → http://localhost:8777
+```
+
+The bookmarklet loader is regenerated with:
+
+```bash
+npm run build:bookmarklet
+```
+
+## Status
+
+Concept proven end to end; validated on the full ~19,900-annotation corpus
+(99% clean reconstruction). The bookmarklet exporter and this site are built.
+The in-browser generator is next. See [`docs/decisions.md`](docs/decisions.md)
+for the full milestone log.
+
+## License
+
+Code: MIT (see `LICENSE`). Fonts under `web/fonts/` are SIL OFL 1.1 — see the
+license files there. Scripture text is quoted for illustration only.

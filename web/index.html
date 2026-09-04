@@ -3,150 +3,552 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Their Testament</title>
-<meta name="description" content="Turn your Gospel Library highlights, notes, and tags into a typeset keepsake book.">
+<title>Their Testament — the scriptures they marked, kept as a book</title>
+<meta name="description" content="Their Testament turns a lifetime of Gospel Library highlights, margin notes, and tags into a typeset keepsake book — every marked verse in its original color, every note in the margin, unedited. An independent project. Runs entirely in your browser.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="canonical" href="https://theirtestament.org/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Their Testament">
+<meta property="og:description" content="The scriptures they marked, kept as a book. An independent keepsake-making project.">
+<meta property="og:url" content="https://theirtestament.org/">
+<meta property="og:image" content="https://theirtestament.org/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="preload" as="font" type="font/woff2" href="fonts/fraunces.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="fonts/ebgaramond.woff2" crossorigin>
+
 <style>
+  /* ---- fonts ------------------------------------------------------- */
+  @font-face {
+    font-family: "Fraunces"; src: url("fonts/fraunces.woff2") format("woff2");
+    font-weight: 100 900; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "Fraunces"; src: url("fonts/fraunces-italic.woff2") format("woff2");
+    font-weight: 100 900; font-style: italic; font-display: swap;
+  }
+  @font-face {
+    font-family: "EB Garamond"; src: url("fonts/ebgaramond.woff2") format("woff2");
+    font-weight: 400 800; font-style: normal; font-display: swap;
+  }
+  @font-face {
+    font-family: "EB Garamond"; src: url("fonts/ebgaramond-italic.woff2") format("woff2");
+    font-weight: 400 800; font-style: italic; font-display: swap;
+  }
+
+  /* ---- tokens ---------------------------------------------------- */
   :root {
-    --bg: #faf7f0;
-    --ink: #241f19;
-    --muted: #6b6153;
-    --rule: #e0d8c7;
-    --accent: #7a5c3e;
-    --card: #fffdf8;
+    --paper:   #f6f0e2;
+    --paper-2: #fdfaf2;
+    --paper-3: #efe7d3;
+    --ink:     #2c261d;
+    --ink-soft:#6d6353;
+    --rule:    #e0d5bd;
+    --accent:  #a5552d;
+    --accent-2:#7f3c1e;
+    --shadow:  0 1px 2px rgba(60,45,25,.06), 0 12px 34px -12px rgba(60,45,25,.22);
+    --mk-yellow: #fdefb0;
+    --mk-blue:   #17c9d1;
+    --serif: "EB Garamond", Georgia, "Times New Roman", serif;
+    --disp:  "Fraunces", Georgia, serif;
+    --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #1c1a17;
-      --ink: #ece7dd;
-      --muted: #a49a88;
-      --rule: #3a352d;
-      --accent: #c8a37a;
-      --card: #262320;
+      --paper:   #17130e;
+      --paper-2: #211b14;
+      --paper-3: #2b2318;
+      --ink:     #ede4d1;
+      --ink-soft:#a99c85;
+      --rule:    #3a3022;
+      --accent:  #e0996b;
+      --accent-2:#eeae82;
+      --shadow:  0 1px 2px rgba(0,0,0,.4), 0 16px 40px -14px rgba(0,0,0,.6);
+      --mk-yellow: rgba(252,219,59,.30);
+      --mk-blue:   #17c9d1;
     }
   }
+
+  /* ---- base ------------------------------------------------------ */
   * { box-sizing: border-box; }
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font-family: var(--serif); font-size: 1.22rem; line-height: 1.62;
+    font-weight: 450; text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
+  }
+  h1, h2, h3 {
+    font-family: var(--disp); font-weight: 500; line-height: 1.14;
+    font-variation-settings: "SOFT" 40, "WONK" 0; letter-spacing: -.006em;
     margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   }
-  .wrap { max-width: 46rem; margin: 0 auto; padding: 4rem 1.5rem 6rem; }
-  header { text-align: center; margin-bottom: 3rem; }
-  h1 {
-    font-size: 2.4rem; letter-spacing: 0.01em; margin: 0 0 0.4rem;
-    font-weight: 600;
+  p { margin: 0 0 1.1rem; }
+  a { color: var(--accent); text-underline-offset: .18em; text-decoration-thickness: .06em; }
+  a:hover { color: var(--accent-2); }
+  em { font-style: italic; }
+  strong { font-weight: 600; }
+  ::selection { background: var(--mk-yellow); color: var(--ink); }
+
+  .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem; }
+  .prose { max-width: 39rem; }
+  .eyebrow {
+    font-family: var(--sans); font-size: .74rem; font-weight: 600;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
+    margin: 0 0 1rem;
   }
-  .tagline { color: var(--muted); font-size: 1.15rem; margin: 0; }
-  h2 {
-    font-size: 1.05rem; text-transform: uppercase; letter-spacing: 0.08em;
-    color: var(--muted); margin: 3rem 0 1rem; font-weight: 600;
+  section { padding: clamp(3.5rem, 8vw, 6.5rem) 0; border-top: 1px solid var(--rule); }
+  section > .wrap > h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); margin-bottom: 1.4rem; }
+
+  /* ---- top bar -------------------------------------------------- */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; padding: 1.15rem 0;
+    font-family: var(--sans); font-size: .82rem;
   }
-  p { margin: 0 0 1rem; }
-  a { color: var(--accent); }
-  .card {
-    background: var(--card); border: 1px solid var(--rule); border-radius: 12px;
-    padding: 1.5rem 1.75rem;
+  .brand { display: flex; align-items: center; gap: .55rem; font-family: var(--disp);
+    font-size: 1.05rem; font-weight: 500; color: var(--ink); text-decoration: none;
+    font-variation-settings: "SOFT" 50; }
+  .brand svg { display: block; }
+  .topbar .meta { color: var(--ink-soft); display: flex; align-items: center; gap: 1.1rem; }
+  .topbar .meta a { color: var(--ink-soft); text-decoration: none; }
+  .topbar .meta a:hover { color: var(--accent); }
+  @media (max-width: 32rem) { .topbar .meta .hide-sm { display: none; } }
+
+  /* ---- hero ---------------------------------------------------- */
+  .hero { padding: clamp(2rem, 5vw, 3.5rem) 0 clamp(2.5rem, 5vw, 4rem); border-top: 0; }
+  .hero h1 {
+    font-size: clamp(2.6rem, 7vw, 4.6rem); font-weight: 480;
+    font-variation-settings: "SOFT" 28, "WONK" 0;
+    max-width: 16ch; margin-bottom: 1.3rem;
   }
-  ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: step; }
-  ol.steps > li {
-    position: relative; padding: 0 0 1.5rem 3rem; counter-increment: step;
+  .hero .lede { font-size: 1.35rem; color: var(--ink-soft); max-width: 34rem; }
+  .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
+  @media (max-width: 54rem) { .hero-grid { grid-template-columns: 1fr; } .hero .lede { max-width: 40rem; } }
+  .hero-cta { margin-top: 1.9rem; display: flex; align-items: baseline; gap: 1.4rem; flex-wrap: wrap;
+    font-family: var(--sans); font-size: .92rem; }
+  .hero-cta a.jump { color: var(--ink-soft); text-decoration: none; }
+  .hero-cta a.jump:hover { color: var(--accent); }
+
+  /* ---- the sample leaf --------------------------------------- */
+  .leaf-stage { display: flex; justify-content: center; perspective: 1400px; }
+  .leaf {
+    background: var(--paper-2); border: 1px solid var(--rule); border-radius: 3px;
+    box-shadow: var(--shadow); padding: 1.6rem 1.5rem 1.9rem;
+    max-width: 26rem; width: 100%; margin: 0;
+    transform: rotate(-1.4deg); transition: transform .5s ease;
   }
-  ol.steps > li:last-child { padding-bottom: 0; }
-  ol.steps > li::before {
-    content: counter(step);
-    position: absolute; left: 0; top: -0.1rem;
-    width: 2rem; height: 2rem; border-radius: 50%;
-    background: var(--accent); color: #fff;
-    display: grid; place-items: center; font-size: 0.95rem; font-weight: 600;
+  .leaf:hover { transform: rotate(0deg); }
+  @media (prefers-reduced-motion: reduce) { .leaf { transform: none; } }
+  .leaf-head {
+    display: flex; justify-content: space-between; font-family: var(--disp);
+    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
+    color: var(--ink-soft); padding-bottom: .5rem; border-bottom: 1px solid var(--rule);
+    font-variation-settings: "SOFT" 60;
   }
-  .bookmarklet-row {
+  .leaf-cols { display: grid; grid-template-columns: 1fr 8.6rem; gap: 1rem; margin-top: 1rem; }
+  .leaf .v { font-size: 1.02rem; line-height: 1.5; margin: 0 0 .7rem; hyphens: auto; }
+  .leaf .v sup { font-family: var(--sans); font-size: .58rem; color: var(--ink-soft); margin-right: .15em; font-weight: 600; }
+  .leaf .mk { background: var(--mk-yellow); padding: .04em 0; border-radius: 1px;
+    -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+  .leaf .mk.u { background: none; box-shadow: inset 0 -.16em 0 var(--mk-blue); }
+  .leaf .margin { border-left: 1px solid var(--rule); padding-left: .85rem; }
+  .leaf .note { font-size: .82rem; line-height: 1.42; color: var(--ink); margin-bottom: 1rem; }
+  .leaf .note:last-child { margin-bottom: 0; }
+  .leaf .note p { margin: .2rem 0 .35rem; }
+  .leaf .rh { font-family: var(--sans); font-size: .62rem; font-weight: 700; letter-spacing: .04em;
+    display: inline-block; padding: .12em .4em; border-radius: 2px; color: var(--accent-2); }
+  .leaf .rh.y { background: var(--mk-yellow); color: #6b5410; }
+  .leaf .rh.b { background: color-mix(in srgb, var(--mk-blue) 22%, transparent); color: #0c6f74; }
+  .leaf .tag { font-family: var(--sans); font-size: .64rem; color: var(--ink-soft); letter-spacing: .03em; }
+  @media (prefers-color-scheme: dark) {
+    .leaf .rh.y { color: #e9d9a4; }
+    .leaf .rh.b { color: #9fe9ec; }
+  }
+  @media (max-width: 22rem) { .leaf-cols { grid-template-columns: 1fr; } .leaf .margin { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); padding-top: .8rem; } }
+
+  /* ---- feature row ------------------------------------------- */
+  .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 2.4rem; }
+  @media (max-width: 46rem) { .features { grid-template-columns: 1fr; gap: 2rem; } }
+  .feature svg { color: var(--accent); margin-bottom: .8rem; }
+  .feature h3 { font-size: 1.25rem; margin-bottom: .4rem; }
+  .feature p { font-size: 1.05rem; color: var(--ink-soft); margin: 0; }
+
+  /* ---- closer look ----------------------------------------- */
+  .closer { background: var(--paper-3); }
+  .closer .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: clamp(2rem,5vw,4rem); align-items: center; }
+  @media (max-width: 52rem) { .closer .wrap { grid-template-columns: 1fr; } }
+  .closer .leaf { max-width: 30rem; }
+  .closer figcaption { font-size: 1.02rem; color: var(--ink-soft); margin-top: 1.2rem; }
+
+  /* ---- steps ---------------------------------------------- */
+  .steps { counter-reset: s; display: grid; gap: 2.2rem; margin-top: 1rem; }
+  .step { display: grid; grid-template-columns: 2.6rem 1fr; gap: 1.1rem; align-items: start; }
+  .step::before {
+    counter-increment: s; content: counter(s);
+    font-family: var(--disp); font-size: 1.15rem; font-weight: 500;
+    width: 2.6rem; height: 2.6rem; border-radius: 50%;
+    display: grid; place-items: center;
+    background: var(--paper-2); border: 1px solid var(--rule); color: var(--accent);
+  }
+  .step h3 { font-size: 1.25rem; margin-bottom: .3rem; }
+  .step p { font-size: 1.06rem; color: var(--ink-soft); margin: 0 0 .5rem; }
+  .step .soon { font-family: var(--sans); font-size: .7rem; font-weight: 600; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent-2);
+    border: 1px solid currentColor; border-radius: 999px; padding: .12em .6em; display: inline-block; }
+
+  .bookmarklet-slab {
+    margin: .6rem 0 .2rem; padding: 1.2rem 1.3rem;
+    background: var(--paper-2); border: 1px dashed var(--rule); border-radius: 10px;
     display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
-    margin: 0.5rem 0 0.25rem;
   }
   a.bookmarklet {
-    display: inline-block; padding: 0.55rem 1.1rem; border-radius: 8px;
-    background: var(--accent); color: #fff; text-decoration: none; font-weight: 600;
-    border: 1px solid var(--accent); cursor: grab;
+    display: inline-flex; align-items: center; gap: .5rem;
+    padding: .6rem 1.1rem; border-radius: 8px;
+    background: var(--accent); color: #fff; text-decoration: none;
+    font-family: var(--sans); font-weight: 600; font-size: .95rem;
+    border: 1px solid var(--accent-2); box-shadow: var(--shadow);
+    cursor: grab; white-space: nowrap;
   }
   a.bookmarklet:active { cursor: grabbing; }
-  .hint { color: var(--muted); font-size: 0.95rem; }
-  .disclaimer {
-    margin-top: 4rem; padding-top: 1.5rem; border-top: 1px solid var(--rule);
-    color: var(--muted); font-size: 0.9rem;
-  }
-  code {
-    background: var(--rule); padding: 0.1em 0.35em; border-radius: 4px;
-    font-size: 0.9em;
-  }
+  a.bookmarklet:hover { color: #fff; background: var(--accent-2); }
+  .bookmarklet-slab .hint { font-family: var(--sans); font-size: .86rem; color: var(--ink-soft); }
+
+  /* ---- privacy ------------------------------------------- */
+  .privacy ul { list-style: none; margin: 1.2rem 0 0; padding: 0; display: grid; gap: .8rem; max-width: 40rem; }
+  .privacy li { display: grid; grid-template-columns: 1.4rem 1fr; gap: .7rem; font-size: 1.08rem; }
+  .privacy li svg { color: var(--accent); margin-top: .28rem; }
+
+  /* ---- faq ---------------------------------------------- */
+  .faq { display: grid; gap: 0; max-width: 44rem; margin-top: .5rem; }
+  details { border-bottom: 1px solid var(--rule); padding: 1.1rem 0; }
+  details:first-child { border-top: 1px solid var(--rule); }
+  summary { cursor: pointer; font-family: var(--disp); font-size: 1.2rem; font-weight: 500;
+    list-style: none; display: flex; justify-content: space-between; align-items: center; gap: 1rem; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-family: var(--sans); color: var(--accent); font-size: 1.3rem; transition: transform .2s; }
+  details[open] summary::after { transform: rotate(45deg); }
+  details p { margin: .8rem 0 0; color: var(--ink-soft); font-size: 1.06rem; }
+
+  /* ---- why / colophon ---------------------------------- */
+  .why .prose p { font-size: 1.15rem; }
+  .signoff { font-family: var(--disp); font-style: italic; color: var(--ink-soft); font-size: 1.05rem; }
+
+  footer { border-top: 1px solid var(--rule); padding: 3rem 0 4rem; font-size: .92rem; color: var(--ink-soft); }
+  footer .wrap { display: grid; gap: 1rem; max-width: 48rem; }
+  footer a { color: var(--ink-soft); }
+  footer a:hover { color: var(--accent); }
+  footer .disclaim { font-size: .86rem; }
+
+  /* ---- reveal ----------------------------------------- */
+  [data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity .7s ease, transform .7s ease; }
+  [data-reveal].in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) { [data-reveal] { opacity: 1; transform: none; transition: none; } }
 </style>
 </head>
 <body>
+
 <div class="wrap">
-
-  <header>
-    <h1>Their Testament</h1>
-    <p class="tagline">A typeset keepsake of the scriptures someone marked.</p>
-  </header>
-
-  <p>
-    Their Testament turns a lifetime of Gospel Library highlights, margin notes, and
-    tags into a printed-quality PDF — every marked verse shown in context, in its
-    original highlight color, with the notes set in the margin beside it.
-  </p>
-  <p>
-    It runs entirely in your browser. Your annotations are never uploaded to a server —
-    this site doesn't have one.
-  </p>
-
-  <h2>Step one — get your annotations</h2>
-  <div class="card">
-    <ol class="steps">
-      <li>
-        Drag this button to your bookmarks bar:
-        <div class="bookmarklet-row">
-          <a class="bookmarklet" href="javascript:(function(){var%20d=document,s=d.createElement('script');s.src='https://theirtestament.org/e.js?v='+Date.now();s.onerror=function(){alert('Their%20Testament:%20the%20exporter%20could%20not%20load.%20Check%20your%20connection%20and%20try%20again.')};(d.body||d.documentElement).appendChild(s)})();">📖 Export my annotations</a>
-          <span class="hint">(drag it — don't click it here)</span>
-        </div>
-      </li>
-      <li>
-        Go to <a href="https://www.churchofjesuschrist.org/study" target="_blank" rel="noopener">churchofjesuschrist.org</a>
-        and sign in. Open anything under <strong>Study</strong> — a chapter, a talk, your notebook.
-      </li>
-      <li>
-        Click the <strong>Export my annotations</strong> bookmark. A small panel appears and
-        pages through your notes.
-      </li>
-      <li>
-        When it finishes it saves a file called
-        <code>their-testament-annotations-<em>date</em>.json</code> to your downloads.
-        That file <em>is</em> your data — keep it safe.
-      </li>
-    </ol>
-  </div>
-
-  <h2>Step two — make the book</h2>
-  <p>
-    The in-browser book generator is still being built. For now, send your
-    <code>.json</code> file to whoever is putting the keepsake together and they'll
-    typeset it for you.
-  </p>
-
-  <h2>Is this private?</h2>
-  <p>
-    Yes. The bookmarklet reads only your own annotations, using the session you're
-    already signed in to, and hands them straight to your browser's download. Nothing
-    is transmitted to this site or anywhere else. The saved <code>.json</code> file
-    stays on your computer until you choose to share it.
-  </p>
-
-  <p class="disclaimer">
-    Their Testament is an independent project. It is not affiliated with, endorsed by,
-    or connected to The Church of Jesus Christ of Latter-day Saints or its Gospel
-    Library app. "Gospel Library" is a product of the Church.
-  </p>
-
+  <nav class="topbar">
+    <a class="brand" href="/">
+      <svg width="16" height="22" viewBox="0 0 16 22" fill="none" aria-hidden="true">
+        <path d="M2 1h12v20l-6-4-6 4V1z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+      Their Testament
+    </a>
+    <span class="meta">
+      <span class="hide-sm">An independent project</span>
+      <a href="https://github.com/jlconlin/their-testament" rel="noopener">Source</a>
+    </span>
+  </nav>
 </div>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <p class="eyebrow">A keepsake, not an app</p>
+        <h1>The scriptures they&nbsp;marked, kept as a&nbsp;book.</h1>
+        <p class="lede">
+          Their Testament gathers a lifetime of Gospel Library highlights, margin
+          notes, and tags into a typeset book — every verse they marked shown in
+          the color they chose, every note beside it, in their own words.
+        </p>
+        <div class="hero-cta">
+          <a class="jump" href="#how">See how it works ↓</a>
+          <a class="jump" href="#privacy">Is it private?</a>
+        </div>
+      </div>
+
+      <div class="leaf-stage" data-reveal>
+        <figure class="leaf" aria-label="A sample page">
+          <div class="leaf-head"><span>Psalm 23</span><span>142</span></div>
+          <div class="leaf-cols">
+            <div>
+              <p class="v"><sup>1</sup> The <span class="mk">Lord</span> is my shepherd;
+                <span class="mk">I shall not want.</span></p>
+              <p class="v"><sup>4</sup> Yea, though I walk through the valley of the
+                shadow of death, <span class="mk u">I will fear no evil</span>: for
+                thou <em>art</em> with me.</p>
+            </div>
+            <aside class="margin">
+              <div class="note">
+                <span class="rh y">23:1</span>
+                <p>He <em>is</em> — present tense. Not someday. The care is happening now.</p>
+                <span class="tag">❧ shepherd</span>
+              </div>
+              <div class="note">
+                <span class="rh b">23:4</span>
+                <p><em>Through</em>, never around. He doesn't take the valley away.</p>
+              </div>
+            </aside>
+          </div>
+        </figure>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section id="what">
+  <div class="wrap">
+    <p class="eyebrow">What the book keeps</p>
+    <h2>The person, on the page.</h2>
+    <div class="features">
+      <div class="feature" data-reveal>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 20h16"/><path d="M6 16l1.5-5L15 3.5a2 2 0 0 1 3 3L10.5 14 6 16z"/>
+        </svg>
+        <h3>Their marks, their colors</h3>
+        <p>Every highlighted verse appears in full, with the exact words marked and
+           the exact color — yellow, blue, red — carried through to the page.</p>
+      </div>
+      <div class="feature" data-reveal>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M4 4h11l5 5v11H4z"/><path d="M8 13h8M8 16.5h5"/>
+        </svg>
+        <h3>Their words, untouched</h3>
+        <p>Notes are set in the margin beside the verse that prompted them, exactly
+           as they were written. Nothing is corrected, shortened, or rephrased.</p>
+      </div>
+      <div class="feature" data-reveal>
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 3h11a2 2 0 0 1 2 2v16l-9-4"/><path d="M5 3v18l4-1.8"/>
+        </svg>
+        <h3>Ordered like scripture</h3>
+        <p>Old Testament through General Conference, in canonical order, with running
+           heads, a table of contents, and an index of every tag they used.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="closer">
+  <div class="wrap">
+    <div>
+      <figure class="leaf" data-reveal aria-label="A second sample page">
+        <div class="leaf-head"><span>Alma 32</span><span>214</span></div>
+        <div class="leaf-cols">
+          <div>
+            <p class="v"><sup>21</sup> And now as I said concerning faith — faith is
+              not to have a perfect knowledge of things; therefore
+              <span class="mk">if ye have faith ye hope for things which are not
+              seen, which are true</span>.</p>
+            <p class="v"><sup>27</sup> But behold, if ye will awake and arouse your
+              faculties, even to an <span class="mk u">experiment upon my words</span>…</p>
+          </div>
+          <aside class="margin">
+            <div class="note">
+              <span class="rh y">32:21<sup style="font-size:.7em">a</sup></span>
+              <p>Hope and evidence aren't opposites. Faith holds both.</p>
+            </div>
+            <div class="note">
+              <span class="rh y">32:21<sup style="font-size:.7em">b</sup></span>
+              <p>"Which are true" — the object matters. Not wishful; real.</p>
+            </div>
+            <div class="note">
+              <span class="rh b">32:27</span>
+              <p>An experiment: you have to actually try it.</p>
+            </div>
+          </aside>
+        </div>
+      </figure>
+    </div>
+    <div class="prose" data-reveal>
+      <p class="eyebrow">A closer look</p>
+      <h2>Built to be read, not just stored.</h2>
+      <p>
+        When several notes land on one verse, they stack in reading order and are
+        lettered — <em>a</em>, <em>b</em> — so you always know which note belongs to
+        which phrase. Verses that were skipped leave a quiet gap rather than a wall
+        of unmarked text.
+      </p>
+      <p>
+        The result is a book you can sit down with: the shape of someone's study,
+        chapter by chapter, in a form that lasts.
+      </p>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="wrap">
+    <p class="eyebrow">How it works</p>
+    <h2>Two steps. Nothing leaves your computer.</h2>
+    <div class="steps prose">
+      <div class="step" data-reveal>
+        <div>
+          <h3>Export your annotations</h3>
+          <p>
+            Drag this button to your bookmarks bar. Then, signed in at
+            churchofjesuschrist.org, open any page under <em>Study</em> and click it.
+            It reads your notes using the session you're already in and saves them as
+            a single file.
+          </p>
+          <div class="bookmarklet-slab">
+            <a class="bookmarklet" href="javascript:(function(){var%20d=document,s=d.createElement('script');s.src='https://theirtestament.org/e.js?v='+Date.now();s.onerror=function(){alert('Their%20Testament:%20the%20exporter%20could%20not%20load.%20Check%20your%20connection%20and%20try%20again.')};(d.body||d.documentElement).appendChild(s)})();">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v13m0 0l-4-4m4 4l4-4M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Export my annotations
+            </a>
+            <span class="hint">Drag it up to your bookmarks bar — don't click it here.</span>
+          </div>
+        </div>
+      </div>
+      <div class="step" data-reveal>
+        <div>
+          <h3>Make the book <span class="soon">In progress</span></h3>
+          <p>
+            The in-browser generator — upload your file, choose a few options,
+            download a print-ready PDF — is being built now. Until it's ready, keep
+            your export file somewhere safe; it's the whole record.
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacy" class="privacy">
+  <div class="wrap">
+    <p class="eyebrow">Privacy</p>
+    <h2>That it stays yours is the whole point.</h2>
+    <div class="prose">
+      <p>
+        The export runs on the Church's own website, in your own browser, using the
+        login you already have. Your annotations are handed straight to your
+        downloads folder and go nowhere else.
+      </p>
+    </div>
+    <ul>
+      <li>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        No account to create, and no password is ever asked for or seen.
+      </li>
+      <li>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        Nothing is uploaded here. This site is a folder of static files on GitHub — there is no server to receive anything.
+      </li>
+      <li>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
+        No analytics, no cookies, no trackers. The code is open — read every line.
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section class="why">
+  <div class="wrap">
+    <p class="eyebrow">Why this exists</p>
+    <div class="prose">
+      <h2>Made for one family, shared for anyone's.</h2>
+      <p>
+        Their Testament began as a way to preserve one person's lifetime of
+        scripture study — thousands of highlights and handwritten-feeling notes that
+        lived only inside an app. Turned into a book, they became something you could
+        hand to a grandchild.
+      </p>
+      <p>
+        It's offered here in case your family has the same thing worth keeping.
+      </p>
+      <p class="signoff">— an independent project, not affiliated with the Church</p>
+    </div>
+  </div>
+</section>
+
+<section id="faq">
+  <div class="wrap">
+    <p class="eyebrow">Questions</p>
+    <h2>Good things to ask.</h2>
+    <div class="faq">
+      <details>
+        <summary>Is it really free?</summary>
+        <p>Yes. There's nothing to buy and no account. The tools are open source. If
+           you print and bind the finished book, that's the only cost, and it's paid
+           to a printer, not here.</p>
+      </details>
+      <details>
+        <summary>Will my notes be edited or cleaned up?</summary>
+        <p>No. A person's own words are never altered — not shortened, corrected, or
+           rephrased. The only change is turning the app's formatting (bold, italics,
+           lists) into typeset formatting.</p>
+      </details>
+      <details>
+        <summary>Does it work on an iPad?</summary>
+        <p>The export works on a computer or an iPad. Installing the bookmark is a
+           little more fiddly on an iPad — you bookmark any page, then edit the
+           bookmark and paste in the address. A desktop browser is the smooth path.</p>
+      </details>
+      <details>
+        <summary>What if there are thousands of highlights?</summary>
+        <p>That's the normal case, and it's expected. The book is split into parts —
+           Old Testament, New Testament, and so on — so even a very large collection
+           stays organized and printable.</p>
+      </details>
+      <details>
+        <summary>Is this an official Church product?</summary>
+        <p>No. Their Testament is an independent project with no connection to The
+           Church of Jesus Christ of Latter-day Saints or its Gospel Library app. It
+           simply reads the annotations you've already made and typesets them.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <p>
+      <a href="#what">What it keeps</a> &nbsp;·&nbsp;
+      <a href="#how">How it works</a> &nbsp;·&nbsp;
+      <a href="#privacy">Privacy</a> &nbsp;·&nbsp;
+      <a href="https://github.com/jlconlin/their-testament" rel="noopener">Source code</a>
+    </p>
+    <p class="disclaim">
+      Their Testament is an independent project. It is not affiliated with, endorsed
+      by, or connected to The Church of Jesus Christ of Latter-day Saints. “Gospel
+      Library” is a product of the Church. Scripture text shown above is from the
+      King James Version and the Book of Mormon and is quoted for illustration.
+    </p>
+    <p class="disclaim">© <span id="yr">2026</span> Their Testament · theirtestament.org</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    var y = document.getElementById("yr");
+    if (y) y.textContent = new Date().getFullYear();
+
+    if (!("IntersectionObserver" in window)) {
+      document.querySelectorAll("[data-reveal]").forEach(function (el) { el.classList.add("in"); });
+      return;
+    }
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add("in"); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    document.querySelectorAll("[data-reveal]").forEach(function (el) { io.observe(el); });
+  })();
+</script>
 </body>
 </html>

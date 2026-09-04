@@ -248,14 +248,28 @@ Full spec: [annotations-format.md](annotations-format.md).
     by `annotationId`, wraps in a v1 envelope, downloads
     `their-testament-annotations-<date>.json`. Content fetching stays in M6.
     Runs entirely client-side; `e.js` is a static file, no backend.
-42. **Minimal landing page now, generator later.** `web/index.html` = what it
-    is + 4-step install + privacy answer + visible "not affiliated with the
-    Church" disclaimer. The M6 generator drops into the same page/origin.
-43. **Deploy target: Cloudflare Pages**, output dir `web/`, no build step,
-    custom domain `theirtestament.org` (registered at Squarespace 2026-09-03,
-    DNS to be moved to Cloudflare).
+42. **Full landing page now, generator drops in later.** `web/index.html` —
+    hero with two sample "leaf" spreads (Psalm 23, Alma 32, invented notes; no
+    real data), "what it keeps", how-it-works (bookmarklet), privacy, "why this
+    exists", FAQ, footer disclaimer. Editorial / small-press look — warm cream +
+    sienna, **Fraunces** display + **EB Garamond** body (self-hosted OFL,
+    `web/fonts/`), dark mode, scroll reveals, `prefers-reduced-motion`. The M6
+    generator drops into the same page/origin. Explicitly *not* the official
+    Church aesthetic (no navy/gold, no crest, personal first-person voice,
+    disclaimer in header + footer + FAQ).
+43. **Deploy target: GitHub Pages** (changed from Cloudflare Pages —
+    user wants to serve straight from the GitHub repo). `.github/workflows/pages.yml`
+    publishes `web/` only; `web/.nojekyll`; `web/CNAME` = `theirtestament.org`.
+    DNS: apex A records → GitHub Pages IPs, `www` CNAME → `jlconlin.github.io`.
+    Repo: `jlconlin/their-testament`, public. MIT `LICENSE`, root `README.md`.
 44. Still to verify on the first live run (a real login): `start` index base,
     the exact response wrapper, iPad Safari install, rate-limit behaviour.
+45. **`docs/m3-validation.md` and `docs/project-overview.md` hold aggregate
+    stats about the family member's real annotation corpus** (counts, note-length
+    distribution, year breakdown — no note text or verse lists). Scrubbed the one
+    hard identifier (personId) from `annotations-format.md`. Before making the
+    repo public, decide whether those two aggregate-stats docs stay or move to a
+    git-ignored `docs/private/`.
 
 ### Open — must resolve before M6 (the browser generator)
 
@@ -270,10 +284,10 @@ Full spec: [annotations-format.md](annotations-format.md).
 
 - **`theirtestament.org` registered (Squarespace, 2026-09-03).** `.com`/`.net`
   were also free; `.org` chosen as primary (reads least like an official
-  product). Next: move DNS to Cloudflare (add as a site on the free plan,
-  repoint nameservers at Squarespace) so Cloudflare Pages "just works".
-- Hosting: static, free — Cloudflare Pages, output dir `web/`. Serving static
-  files is the only server-side thing in the whole design.
+  product).
+- Hosting: **GitHub Pages**, static, free, served from the repo (`web/` folder
+  via Actions). Serving static files is the only server-side thing in the whole
+  design. DNS at Squarespace points the apex at GitHub's Pages IPs.
 - The public site is a small **landing page** (what it is, sample spread,
   3 steps, privacy-first FAQ, visible "not affiliated with the Church"
   disclaimer, the bookmarklet) wrapped around the **M6 generator**. Not a
