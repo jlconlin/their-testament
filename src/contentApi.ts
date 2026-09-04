@@ -1,7 +1,7 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import type { ContentPage } from "./types.ts";
+import type { ContentPage, ContentSource } from "./types.ts";
 
 const BASE = "https://www.churchofjesuschrist.org/study/api/v3/language-pages/type/content";
 
@@ -14,7 +14,7 @@ const BASE = "https://www.churchofjesuschrist.org/study/api/v3/language-pages/ty
  * The web build will swap this cache dir for IndexedDB; the fetch itself is
  * identical (CORS on this endpoint is open).
  */
-export class ContentClient {
+export class ContentClient implements ContentSource {
   constructor(
     private cacheDir: string,
     private lang = "eng",

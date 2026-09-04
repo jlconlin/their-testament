@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2022", "DOM"],
+    "outDir": "web/gen",
+    "rootDir": "src",
+    "rewriteRelativeImportExtensions": true,
+    "declaration": false,
+    "strict": true,
+    "skipLibCheck": true
+  },
+  "include": [
+    "src/types.ts",
+    "src/envelope.ts",
+    "src/verses.ts",
+    "src/scripture.ts",
+    "src/talk.ts",
+    "src/segment.ts",
+    "src/units.ts",
+    "src/diagSummary.ts",
+    "src/locate.ts",
+    "src/noteHtml.ts",
+    "src/assemble.ts",
+    "src/assembleGC.ts",
+    "src/notebooks.ts",
+    "src/assembleBook.ts",
+    "src/browserContent.ts",
+    "src/browserRender.ts"
+  ]
+}

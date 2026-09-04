@@ -10,7 +10,8 @@
     "check:export": "tsx scripts/check-export.ts",
     "validate": "tsx scripts/validate.ts",
     "serve:web": "python3 -m http.server 8777 --directory web",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:web-pipeline": "tsc -p tsconfig.web.json && cp templates/book.typ web/gen/book.typ"
   },
   "devDependencies": {
     "@types/node": "^22",

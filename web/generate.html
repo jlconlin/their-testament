@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Their Testament — generator (dev)</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 15px/1.5 -apple-system, system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1.5rem; }
+  h1 { font-size: 1.2rem; }
+  .note { opacity: .7; font-size: .9em; }
+  #log { white-space: pre-wrap; background: color-mix(in srgb, currentColor 6%, transparent);
+         border-radius: .4em; padding: .75em 1em; font: 13px/1.5 ui-monospace, monospace; min-height: 4em; }
+  button { font: inherit; padding: .5em 1em; }
+  a.download { display: inline-block; margin-top: 1em; }
+  #progress { font-size: .9em; opacity: .75; margin-top: .4em; }
+  #report { margin-top: 1em; font-size: .9em; }
+  #report summary { cursor: pointer; }
+  #report table { border-collapse: collapse; margin-top: .5em; width: 100%; }
+  #report td { padding: .15em .6em .15em 0; vertical-align: top; font: 12px/1.4 ui-monospace, monospace; }
+  #report .cat-warning { color: #9a6a00; }
+  #report .cat-failed { color: #b3261e; }
+  #error { margin-top: 1em; padding: .9em 1em; border-radius: .4em;
+           background: color-mix(in srgb, #b3261e 10%, transparent);
+           border: 1px solid color-mix(in srgb, #b3261e 35%, transparent); }
+  #error h2 { font-size: 1em; margin: 0 0 .3em; }
+  #error summary { cursor: pointer; margin-top: .5em; opacity: .7; font-size: .85em; }
+  #error pre { white-space: pre-wrap; font: 12px/1.4 ui-monospace, monospace; opacity: .75; }
+</style>
+</head>
+<body>
+<h1>Their Testament — generator (dev scaffold)</h1>
+<p class="note">
+  Not linked from the public site yet — M6 scaffolding only. Uses default
+  (non-final) fonts pending the licensing decision in decisions.md; a first
+  run fetches every marked chapter/talk from the Church's content API
+  (rate-limited), so it can take a while for a large export.
+</p>
+
+<p><input type="file" id="file" accept="application/json"></p>
+
+<fieldset>
+  <legend>Options</legend>
+  <p>
+    <label for="personName">Name on the title page (optional)</label><br>
+    <input type="text" id="personName" placeholder="e.g. Jane Smith">
+  </p>
+  <p>
+    <label><input type="radio" name="margins" value="fixed" checked> Fixed margins (read on a screen or single-sided print)</label><br>
+    <label><input type="radio" name="margins" value="mirrored"> Mirrored margins (for two-sided, bound printing)</label>
+  </p>
+</fieldset>
+
+<p><button id="go" disabled>Generate</button></p>
+<pre id="log">choose your annotations.json export…</pre>
+<div id="report" hidden></div>
+<div id="error" hidden></div>
+
+<script type="importmap">
+{ "imports": { "node-html-parser": "https://cdn.jsdelivr.net/npm/node-html-parser@9.0.3/dist/index.mjs" } }
+</script>
+<script type="module">
+import { readEnvelope } from "./gen/envelope.js";
+import { ContentClientBrowser } from "./gen/browserContent.js";
+import { assembleBook } from "./gen/assembleBook.js";
+import { renderPdfBrowser } from "./gen/browserRender.js";
+import { summarizeDiags } from "./gen/diagSummary.js";
+
+const fileInput = document.getElementById("file");
+const goButton = document.getElementById("go");
+const logEl = document.getElementById("log");
+const reportEl = document.getElementById("report");
+const errorEl = document.getElementById("error");
+
+function el(tag, props, children) {
+  const node = document.createElement(tag);
+  Object.assign(node, props ?? {});
+  for (const c of children ?? []) node.append(c);
+  return node;
+}
+
+// Plain-language translations -- "pid-no-match" means nothing to a real user.
+const CATEGORY_LABEL = {
+  "pid-no-match": "couldn't find this verse/paragraph (the page may have changed since this was marked)",
+  "empty-span": "highlight had no length — marked the whole verse/paragraph instead",
+  "whole-unit-fallback": "highlight's position had shifted — marked the whole verse/paragraph instead",
+  "note-no-anchor": "note's highlight couldn't be placed — preserved separately (see below)",
+  "note-parse-empty": "note content didn't parse — may be unusual formatting",
+};
+
+function renderReport(summary, unplacedCount) {
+  reportEl.hidden = false;
+  reportEl.replaceChildren();
+
+  const rows = [...summary.warningRows.map((d) => [d, "cat-warning"]), ...summary.failedRows.map((d) => [d, "cat-failed"])];
+  reportEl.append(el("strong", { textContent: "Completeness: " }));
+  reportEl.append(document.createTextNode(
+    `${summary.clean} clean · ${summary.warning} warning(s) · ${summary.failed} failed ` +
+    `(of ${summary.total} marked verses/paragraphs)`,
+  ));
+  if (unplacedCount) {
+    reportEl.append(el("p", {
+      textContent: `${unplacedCount} note(s) couldn't be attached to a specific spot — they're kept in a ` +
+        `"Notes We Couldn't Place" section near the back of the book instead of being dropped.`,
+    }));
+  }
+
+  if (!rows.length) return;
+  const table = el("table", {}, [
+    el("tr", {}, [
+      el("td", { innerHTML: "<b>ref</b>" }), el("td", { innerHTML: "<b>what happened</b>" }),
+      el("td", { innerHTML: "<b>detail</b>" }), el("td", { innerHTML: "<b>annotation id</b>" }),
+    ]),
+    ...rows.map(([d, level]) => el("tr", { className: level }, [
+      el("td", { textContent: d.unitRef }),
+      el("td", { textContent: CATEGORY_LABEL[d.category] ?? d.category }),
+      el("td", { textContent: d.detail ?? "" }),
+      el("td", { textContent: d.annotationId }),
+    ])),
+  ]);
+  const details = el("details", {}, [
+    el("summary", { textContent: `show the ${rows.length} non-clean row(s)` }),
+    table,
+  ]);
+  reportEl.append(details);
+}
+
+const log = (msg) => { logEl.textContent += "\n" + msg; };
+const setStatus = (msg) => { logEl.textContent = msg; };
+
+// A friendly, actionable message per failure stage -- not a raw stack trace.
+// Nothing in this pipeline uploads anything anywhere, so "nothing was lost"
+// is always literally true and worth saying.
+function friendlyError(stage, e) {
+  const REASSURE = "Nothing was lost — this all happens on your device; nothing was uploaded anywhere.";
+  if (stage === "reading") {
+    return {
+      title: "That file doesn't look like a valid export",
+      body: `Make sure you're uploading the .json file the bookmarklet downloaded, not something else. ${REASSURE}`,
+    };
+  }
+  if (stage === "assembling") {
+    return {
+      title: "Something went wrong turning your marks into pages",
+      body: `${REASSURE} Try again — if it keeps happening on the same file, the file itself may be the problem.`,
+    };
+  }
+  if (stage === "compiling") {
+    return {
+      title: "Something went wrong compiling your book",
+      body: `${REASSURE} This can happen with a very large number of marked verses, or a slow/unreliable connection (the PDF compiler loads from a CDN). Try again in a moment.`,
+    };
+  }
+  return { title: "Something went wrong", body: REASSURE };
+}
+
+function renderError(stage, e) {
+  const { title, body } = friendlyError(stage, e);
+  errorEl.hidden = false;
+  errorEl.replaceChildren(
+    el("h2", { textContent: title }),
+    el("p", { textContent: body }),
+    el("details", {}, [
+      el("summary", { textContent: "technical detail" }),
+      el("pre", { textContent: String((e && e.stack) || e) }),
+    ]),
+  );
+}
+
+let file = null;
+fileInput.addEventListener("change", () => {
+  file = fileInput.files[0] ?? null;
+  goButton.disabled = !file;
+  setStatus(file ? `ready — ${file.name} (${file.size.toLocaleString()} bytes)` : "choose your annotations.json export…");
+});
+
+goButton.addEventListener("click", async () => {
+  goButton.disabled = true;
+  const oldLink = document.querySelector("a.download");
+  if (oldLink) oldLink.remove();
+  reportEl.hidden = true;
+  errorEl.hidden = true;
+  let stage = "reading";
+  try {
+    setStatus("reading file…");
+    const raw = JSON.parse(await file.text());
+
+    const envelope = readEnvelope(raw, (w) => log(`⚠ ${w}`));
+    log(`envelope OK — ${envelope.annotations.length} annotations, exported ${envelope.exportedAt}`);
+
+    const progressLine = document.createElement("div");
+    progressLine.id = "progress";
+    logEl.after(progressLine);
+    const content = new ContentClientBrowser("eng", 400, (p) => {
+      progressLine.textContent =
+        `fetching content… ${p.fetched} fetched · ${p.cacheHits} cached` +
+        (p.failed ? ` · ${p.failed} failed` : "");
+    });
+    const personName = document.getElementById("personName").value.trim() || null;
+    const margins = document.querySelector('input[name="margins"]:checked').value;
+
+    log("assembling book (this fetches every marked chapter/talk — slow on a first run)…");
+    stage = "assembling";
+    const { book, diags, uncategorised } = await assembleBook(envelope.annotations, content, { personName, margins });
+    progressLine.remove();
+    log(`assembled ${book.parts.length} part(s), ${content.fetched} fetched / ${content.cacheHits} cached`);
+    if (uncategorised.length) log(`${uncategorised.length} annotation(s) could not be categorised`);
+    renderReport(summarizeDiags(diags), (book.unplacedNotes ?? []).length);
+
+    setStatus(logEl.textContent + "\nfetching Typst template…");
+    const mainTypst = await fetch("./gen/book.typ").then((r) => r.text());
+
+    log("compiling to PDF (typst-wasm)…");
+    stage = "compiling";
+    const pdfBytes = await renderPdfBrowser({ book, mainTypst });
+    log(`compiled — ${pdfBytes.length.toLocaleString()} bytes`);
+
+    const blob = new Blob([pdfBytes], { type: "application/pdf" });
+    const a = document.createElement("a");
+    a.className = "download";
+    a.href = URL.createObjectURL(blob);
+    a.download = "their-testament.pdf";
+    a.textContent = "download their-testament.pdf";
+    document.body.appendChild(a);
+    log("DONE");
+  } catch (e) {
+    log("FAILED — see the message below");
+    renderError(stage, e);
+  } finally {
+    goButton.disabled = false;
+  }
+});
+</script>
+</body>
+</html>

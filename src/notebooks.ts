@@ -1,7 +1,6 @@
 import type {
-  Annotation, DocNotebook, DocPart, Highlight, NotebookEntry,
+  Annotation, ContentSource, DocNotebook, DocPart, Highlight, NotebookEntry,
 } from "./types.ts";
-import type { ContentClient } from "./contentApi.ts";
 import { classify, abbrev } from "./scripture.ts";
 import { parseVerses } from "./verses.ts";
 import { parseTalk } from "./talk.ts";
@@ -92,7 +91,7 @@ function passageMeta(a: Annotation): PassageMeta | null {
 
 export async function assembleNotebooksPart(
   annotations: Annotation[],
-  content: ContentClient,
+  content: ContentSource,
   partKey = "notebooks",
   partTitle = "Notebooks",
 ): Promise<{ part: DocPart; diags: Diag[] }> {

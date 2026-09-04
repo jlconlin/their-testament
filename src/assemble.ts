@@ -1,9 +1,8 @@
 import type {
-  Annotation, DocChapter, DocPart, Highlight, TagIndexEntry,
+  Annotation, ContentSource, DocChapter, DocPart, Highlight, TagIndexEntry,
 } from "./types.ts";
-import type { ContentClient } from "./contentApi.ts";
 import { parseVerses } from "./verses.ts";
-import { assembleUnits, type Diag } from "./units.ts";
+import { assembleUnits, type Diag, type UnplacedNote } from "./units.ts";
 
 export type { TagIndexEntry };
 
@@ -48,6 +47,7 @@ export interface BookResult {
   tagEntries: TagEntry[];
   diags: Diag[];
   located: { ref: string; status: string }[];
+  unplacedNotes: UnplacedNote[];
 }
 
 const CH_KEY = (partKey: string, ch: number) => `${partKey}|${ch}`;
@@ -56,7 +56,7 @@ const CH_KEY = (partKey: string, ch: number) => `${partKey}|${ch}`;
 export async function assembleScriptureBook(
   annotations: Annotation[],
   spec: BookSpec,
-  content: ContentClient,
+  content: ContentSource,
 ): Promise<BookResult> {
   const chapRe = new RegExp(`${spec.base}/${spec.slug}/(\\d+)(?:[.?#]|$)`);
   const inBook = (h: Highlight) => chapRe.test(h.uri ?? "");
@@ -75,6 +75,7 @@ export async function assembleScriptureBook(
   const tagEntries: TagEntry[] = [];
   const diags: Diag[] = [];
   const located: { ref: string; status: string }[] = [];
+  const unplacedNotes: UnplacedNote[] = [];
 
   for (const chapter of [...byChapter.keys()].sort((a, b) => a - b)) {
     const page = await content.tryGet(`${spec.base}/${spec.slug}/${chapter}`);
@@ -98,6 +99,7 @@ export async function assembleScriptureBook(
 
     for (const d of res.diags) diags.push({ ...d, unitRef: `${spec.name} ${d.unitRef}` });
     located.push(...res.located.map((r) => ({ ref: r.ref, status: r.status })));
+    unplacedNotes.push(...res.unplacedNotes);
 
     for (const { tag, ref } of res.tagRefs) {
       // ref is now "chapter:verse"
@@ -121,7 +123,7 @@ export async function assembleScriptureBook(
     }
   }
 
-  return { chapters, tagEntries, diags, located };
+  return { chapters, tagEntries, diags, located, unplacedNotes };
 }
 
 /** Group already-assembled books into scripture Parts, in canonical order. */

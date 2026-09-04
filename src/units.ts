@@ -1,7 +1,7 @@
 // Shared: map a set of annotations onto parsed units (scripture verses or talk
 // paragraphs) and produce render-ready DocVerse[] plus tag references.
 
-import type { Annotation, DocVerse, Highlight, Mark, Note, Verse } from "./types.ts";
+import type { Annotation, DocVerse, Highlight, Mark, Note, NoteNode, Verse } from "./types.ts";
 import { locate, type Located } from "./locate.ts";
 import { parseNote } from "./noteHtml.ts";
 import { segment } from "./segment.ts";
@@ -33,6 +33,21 @@ export interface Diag {
   noteFeatures?: string[]; // "link" | "list" | "quote" | "bold" | "italic" | "multiline"
 }
 
+/**
+ * A note whose highlight(s) couldn't be matched to any parsed verse/paragraph
+ * -- so it has nothing to sit beside -- but the note's own words survive.
+ * "A person's own words are never altered" (decisions.md #30) shouldn't stop
+ * meaning "or silently dropped when we can't place them."
+ */
+export interface UnplacedNote {
+  annotationId: string;
+  created: string;
+  source: string; // e.g. "Job 1" or a talk title -- wherever this was meant to go
+  title: string | null;
+  body: NoteNode[];
+  tags: string[];
+}
+
 export interface UnitsResult {
   docVerses: DocVerse[];
   /** (tag, unit-ref) pairs; caller adds book/talk qualifiers + sort keys */
@@ -40,6 +55,7 @@ export interface UnitsResult {
   located: LocatedRow[];
   noMatch: string[];
   diags: Diag[];
+  unplacedNotes: UnplacedNote[];
   /** verses/paragraphs carrying >1 note */
   multiNoteUnits: number;
 }
@@ -66,6 +82,7 @@ export function assembleUnits(
   const located: LocatedRow[] = [];
   const noMatch: string[] = [];
   const diags: Diag[] = [];
+  const unplacedNotes: UnplacedNote[] = [];
 
   const noteFeatures = (html: string | undefined, body: ReturnType<typeof parseNote>): string[] => {
     const f: string[] = [];
@@ -124,6 +141,13 @@ export function assembleUnits(
     if (!anchorRef) {
       diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
         detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+      const body = parseNote(a.note?.content);
+      if (body.length > 0 || a.note?.title || a.tags.length > 0) {
+        unplacedNotes.push({
+          annotationId: a.annotationId, created, source: opts.label,
+          title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
+        });
+      }
       continue;
     }
 
@@ -195,5 +219,5 @@ export function assembleUnits(
   }
 
   const multiNoteUnits = [...notesByRef.values()].filter((ns) => ns.length > 1).length;
-  return { docVerses, tagRefs, located, noMatch, diags, multiNoteUnits };
+  return { docVerses, tagRefs, located, noMatch, diags, unplacedNotes, multiNoteUnits };
 }

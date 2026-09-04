@@ -10,10 +10,11 @@ import { assembleScriptureBook, buildScripturePart, mergeTagIndex, type TagEntry
 import { assembleConferencePart } from "../src/assembleGC.ts";
 import { assembleNotebooksPart } from "../src/notebooks.ts";
 import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "../src/scripture.ts";
+import { FAIL_CATEGORIES, WARN_CATEGORIES, OK_CATEGORIES } from "../src/diagSummary.ts";
 import { renderPdf } from "../src/render.ts";
 import { loadExport } from "./_data.ts";
 import type { Annotation, DocBook, DocPart } from "../src/types.ts";
-import type { Diag } from "../src/units.ts";
+import type { Diag, UnplacedNote } from "../src/units.ts";
 
 const ROOT = resolve(import.meta.dirname, "..");
 const OUT = resolve(ROOT, "out/validate");
@@ -64,6 +65,7 @@ async function main() {
   const content = new ContentClient(resolve(ROOT, "data/cache/content"), "eng", 350);
   const allDiags: Diag[] = [];
   const allTags: TagEntry[] = [];
+  const allUnplacedNotes: UnplacedNote[] = [];
   const parts: DocPart[] = [];
 
   for (const pdef of SCRIPTURE_PARTS) {
@@ -90,6 +92,7 @@ async function main() {
       books.push({ spec, result });
       allDiags.push(...result.diags);
       allTags.push(...result.tagEntries);
+      allUnplacedNotes.push(...result.unplacedNotes);
       process.stdout.write(`  ${spec.name}: ${result.chapters.length} ch, ${result.diags.length} diag rows\r`);
     }
     const part = buildScripturePart(pdef.key, pdef.title, books);
@@ -111,6 +114,7 @@ async function main() {
   parts.push(gc.part);
   allTags.push(...gc.tagEntries);
   allDiags.push(...gc.diags);
+  allUnplacedNotes.push(...gc.unplacedNotes);
 
   // ---- 3b. notebooks ------------------------------------------------------
   console.log(`\n[Notebooks]`);
@@ -142,6 +146,9 @@ async function main() {
     margins: "fixed",
     parts,
     tagIndex: mergeTagIndex(allTags),
+    unplacedNotes: allUnplacedNotes.map((n) => ({
+      source: n.source, created: n.created, title: n.title, body: n.body, tags: n.tags,
+    })),
     stats: {
       dateRange: [dates[0] ?? "", dates.at(-1) ?? ""],
       versesMarked: new Set(all.flatMap((a) => (a.highlights ?? []).map((h) => h.uri))).size,
@@ -171,9 +178,9 @@ async function main() {
   noteLens.sort((a, b) => a - b);
   const q = (p: number) => noteLens[Math.floor(noteLens.length * p)] ?? 0;
 
-  const failCats = ["pid-no-match", "empty-span", "note-no-anchor", "note-parse-empty"];
-  const warnCats = ["whole-unit-fallback"];
-  const okCats = ["located", "clear"];
+  const failCats: string[] = FAIL_CATEGORIES;
+  const warnCats: string[] = WARN_CATEGORIES;
+  const okCats: string[] = OK_CATEGORIES;
   const sum = (cats: string[]) => cats.reduce((s, c) => s + (byCat.get(c) ?? 0), 0);
 
   const L: string[] = [];
@@ -240,6 +247,7 @@ async function main() {
   L.push(`  scripture chapters         ${scrChapters}`);
   L.push(`  gc talks                   ${gcTalks}`);
   L.push(`  tag index entries          ${book.tagIndex.length}`);
+  L.push(`  unplaced notes preserved   ${allUnplacedNotes.length}`);
   L.push(`  multi-note units (approx)  ${allDiags.filter((d) => d.category === "located" && d.noteChars !== undefined).length}`);
   L.push(`  assemble time              ${(assembleMs / 1000).toFixed(1)} s`);
   L.push("");

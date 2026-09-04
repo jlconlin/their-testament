@@ -1,7 +1,6 @@
-import type { Annotation, DocConference, DocPart, DocTalk, Highlight } from "./types.ts";
-import type { ContentClient } from "./contentApi.ts";
+import type { Annotation, ContentSource, DocConference, DocPart, DocTalk, Highlight } from "./types.ts";
 import { parseTalk } from "./talk.ts";
-import { assembleUnits, type Diag } from "./units.ts";
+import { assembleUnits, type Diag, type UnplacedNote } from "./units.ts";
 import type { TagEntry } from "./assemble.ts";
 
 const MONTHS: Record<string, string> = { "04": "April", "10": "October" };
@@ -19,15 +18,16 @@ function talkOrder(confBody: string): string[] {
 export async function assembleConferencePart(
   annotations: Annotation[],
   years: { year: string; month: string }[],
-  content: ContentClient,
+  content: ContentSource,
   partKey = "gc",
   partTitle = "General Conference",
-): Promise<{ part: DocPart; tagEntries: TagEntry[]; located: string[]; noMatch: string[]; diags: Diag[] }> {
+): Promise<{ part: DocPart; tagEntries: TagEntry[]; located: string[]; noMatch: string[]; diags: Diag[]; unplacedNotes: UnplacedNote[] }> {
   const conferences: DocConference[] = [];
   const tagEntries: TagEntry[] = [];
   const located: string[] = [];
   const noMatch: string[] = [];
   const diags: Diag[] = [];
+  const unplacedNotes: UnplacedNote[] = [];
   let order = 0;
 
   for (const { year, month } of years) {
@@ -77,6 +77,7 @@ export async function assembleConferencePart(
       });
       located.push(...res.located.map((r) => `${r.ref.padEnd(40)} ${r.color}/${r.style} ${r.offsets} ${r.status}`));
       noMatch.push(...res.noMatch);
+      unplacedNotes.push(...res.unplacedNotes);
 
       order += 1;
       const confAbbr = month === "04" ? "A" : month === "10" ? "O" : month;
@@ -120,6 +121,7 @@ export async function assembleConferencePart(
     located,
     noMatch,
     diags,
+    unplacedNotes,
   };
 }
 

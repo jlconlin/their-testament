@@ -63,6 +63,15 @@ export interface ContentPage {
   uri: string;
 }
 
+/**
+ * What the assembler needs from a content fetcher — implemented by the
+ * Node dev client (disk cache) and the browser client (IndexedDB cache).
+ */
+export interface ContentSource {
+  get(docUri: string): Promise<ContentPage>;
+  tryGet(docUri: string): Promise<ContentPage | null>;
+}
+
 // ---------------------------------------------------------------------------
 // Parsed verse
 // ---------------------------------------------------------------------------
@@ -192,6 +201,15 @@ export type DocPart =
   | { kind: "gc"; key: string; title: string; conferences: DocConference[] }
   | { kind: "notebooks"; key: string; title: string; notebooks: DocNotebook[] };
 
+/** A note whose highlight couldn't be matched to a verse/paragraph -- see src/units.ts's UnplacedNote. */
+export interface UnplacedNoteEntry {
+  source: string;
+  created: string;
+  title: string | null;
+  body: NoteNode[];
+  tags: string[];
+}
+
 export interface DocBook {
   generatedAt: string;
   personName: string | null;
@@ -199,6 +217,8 @@ export interface DocBook {
   margins: "fixed" | "mirrored";
   parts: DocPart[];
   tagIndex: TagIndexEntry[];
+  /** Notes preserved even though their highlight didn't resolve to a specific spot (see decisions.md). */
+  unplacedNotes?: UnplacedNoteEntry[];
   stats: {
     dateRange: [string, string];
     versesMarked: number;
