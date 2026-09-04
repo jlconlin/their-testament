@@ -28,8 +28,12 @@ web/            the website + the bookmarklet exporter (static; deployed as-is)
 src/            the generation pipeline (TypeScript)
 templates/      the Typst book template
 scripts/        build & validation entry points
-docs/           design decisions, format spec, validation results
+docs/           format spec, exporter notes, the design decisions log
 ```
+
+Full-corpus validation results and other write-ups that describe the real
+annotation data are kept locally in a git-ignored `docs/private/`, not
+published here.
 
 ## Running the generator (developer)
 
@@ -63,9 +67,17 @@ npm run build:bookmarklet
 ## Status
 
 Concept proven end to end; validated on the full ~19,900-annotation corpus
-(99% clean reconstruction). The bookmarklet exporter and this site are built.
-The in-browser generator is next. See [`docs/decisions.md`](docs/decisions.md)
-for the full milestone log.
+(99% clean reconstruction). The bookmarklet exporter ([`web/e.js`](web/e.js))
+and this landing site are built. The in-browser generator (upload → options →
+download, no server) is next.
+
+A formal permission request covering scripture and General Conference talk
+text was submitted to the Church's Intellectual Property Office on
+2026-09-04 (request #L26-64433); a response is expected within ~45 days.
+
+See [`docs/decisions.md`](docs/decisions.md) for the full milestone log
+(including that request's details, under "M7") and
+[`docs/m5-exporter.md`](docs/m5-exporter.md) for how the exporter works.
 
 ## License
 
