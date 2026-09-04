@@ -352,3 +352,25 @@ no other field on that page that states the tool is public rather than
 personal-only. Left as-is; the public/available-to-others framing is already
 stated in the free-text answers (Content Requests and Product/Project
 description).
+
+## M8 — Site analytics + protected contact form (planned, not started)
+
+Two additions to the live site, decided but deferred:
+
+- **Analytics**: Cloudflare Web Analytics (free, cookie-less, no consent
+  banner needed since it's already the site's host). Needs the site added
+  under Analytics & Logs → Web Analytics in the Cloudflare dashboard to get a
+  beacon token, then one script tag added to `web/index.html`.
+- **Contact form**: a form on the site, protected by Cloudflare Turnstile
+  (blocks bots without a user-facing CAPTCHA), backed by a small Worker
+  endpoint that emails submissions via Cloudflare Email Routing — no
+  third-party form service, no publicly exposed email address. Rejected
+  alternatives: a plain `mailto:` link (doesn't stop spam once the address is
+  guessable) and a third-party form service like Formspree (adds a dependency
+  on another company routing the messages).
+
+Needs before starting: Email Routing enabled on the domain with a verified
+destination address, and a Turnstile site/secret key pair from the dashboard
+(both dashboard steps only the account owner can do). Code-side, this also
+means adding a `main` Worker entry point alongside the existing
+`assets` binding in `wrangler.jsonc`, which is currently assets-only.
