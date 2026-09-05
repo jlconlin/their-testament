@@ -197,26 +197,41 @@
   }
   .step h3 { font-size: 1.25rem; margin-bottom: .3rem; }
   .step p { font-size: 1.06rem; color: var(--ink-soft); margin: 0 0 .5rem; }
+  .substeps {
+    list-style: none; counter-reset: sub; margin: .6rem 0 .9rem; padding: 0;
+    display: grid; gap: .55rem;
+  }
+  .substeps li {
+    counter-increment: sub; position: relative; padding-left: 1.9rem;
+    font-size: 1.06rem; color: var(--ink-soft); line-height: 1.45;
+  }
+  .substeps li::before {
+    content: counter(sub) "."; position: absolute; left: 0; top: 0;
+    width: 1.5rem;
+    font-family: var(--sans); font-size: .92rem; font-weight: 600;
+    color: var(--accent);
+  }
   .step .soon { font-family: var(--sans); font-size: .7rem; font-weight: 600; letter-spacing: .1em;
     text-transform: uppercase; color: var(--accent-2);
     border: 1px solid currentColor; border-radius: 999px; padding: .12em .6em; display: inline-block; }
 
   .bookmarklet-slab {
-    margin: .6rem 0 .2rem; padding: 1.2rem 1.3rem;
-    background: var(--paper-2); border: 1px dashed var(--rule); border-radius: 10px;
-    display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+    margin: .5rem 0 0; padding: .5rem .6rem;
+    background: var(--paper-2); border: 1px dashed var(--rule); border-radius: 8px;
+    display: inline-flex; flex-direction: column; align-items: flex-start; gap: .4rem;
+    max-width: 100%;
   }
   a.bookmarklet {
-    display: inline-flex; align-items: center; gap: .5rem;
-    padding: .6rem 1.1rem; border-radius: 8px;
+    display: inline-flex; align-items: center; gap: .4rem;
+    padding: .45rem .85rem; border-radius: 7px;
     background: var(--accent); color: #fff; text-decoration: none;
-    font-family: var(--sans); font-weight: 600; font-size: .95rem;
+    font-family: var(--sans); font-weight: 600; font-size: .88rem;
     border: 1px solid var(--accent-2); box-shadow: var(--shadow);
     cursor: grab; white-space: nowrap;
   }
   a.bookmarklet:active { cursor: grabbing; }
   a.bookmarklet:hover { color: #fff; background: var(--accent-2); }
-  .bookmarklet-slab .hint { font-family: var(--sans); font-size: .86rem; color: var(--ink-soft); }
+  .bookmarklet-slab .hint { font-family: var(--sans); font-size: .8rem; color: var(--ink-soft); }
 
   /* ---- privacy ------------------------------------------- */
   .privacy ul { list-style: none; margin: 1.2rem 0 0; padding: 0; display: grid; gap: .8rem; max-width: 40rem; }
@@ -406,19 +421,25 @@
       <div class="step" data-reveal>
         <div>
           <h3>Export your annotations</h3>
+          <ol class="substeps">
+            <li>
+              Drag this button to your bookmarks bar.
+              <div class="bookmarklet-slab">
+                <a class="bookmarklet" href="javascript:(function(){var%20d=document,s=d.createElement('script');s.src='https://theirtestament.org/e.js?v='+Date.now();s.onerror=function(){alert('Their%20Testament:%20the%20exporter%20could%20not%20load.%20Check%20your%20connection%20and%20try%20again.')};(d.body||d.documentElement).appendChild(s)})();">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v13m0 0l-4-4m4 4l4-4M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  Export my annotations
+                </a>
+                <span class="hint">Drag it up to your bookmarks bar — don't click it here.</span>
+              </div>
+            </li>
+            <li>Go to <a href="https://scriptures.churchofjesuschrist.org" rel="noopener">scriptures.churchofjesuschrist.org</a>
+              (or any page under <em>Study</em>) and sign in if you aren't already.</li>
+            <li>Click the bookmark you just saved.</li>
+          </ol>
           <p>
-            Drag this button to your bookmarks bar. Then, signed in at
-            churchofjesuschrist.org, open any page under <em>Study</em> and click it.
-            It reads your notes using the session you're already in and saves them as
-            a single file.
+            It reads your notes using the session you're already in and saves them
+            as a single file — right to your downloads folder.
           </p>
-          <div class="bookmarklet-slab">
-            <a class="bookmarklet" href="javascript:(function(){var%20d=document,s=d.createElement('script');s.src='https://theirtestament.org/e.js?v='+Date.now();s.onerror=function(){alert('Their%20Testament:%20the%20exporter%20could%20not%20load.%20Check%20your%20connection%20and%20try%20again.')};(d.body||d.documentElement).appendChild(s)})();">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v13m0 0l-4-4m4 4l4-4M5 21h14" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              Export my annotations
-            </a>
-            <span class="hint">Drag it up to your bookmarks bar — don't click it here.</span>
-          </div>
         </div>
       </div>
       <div class="step" data-reveal>
