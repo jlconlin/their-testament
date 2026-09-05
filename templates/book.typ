@@ -3,6 +3,42 @@
 
 #let doc = json(sys.inputs.at("doc", default: "doc.json"))
 
+// "full" (default, one compile, everything -- the CLI/dev path, and the
+// browser's own first attempt for a small book): "front" (title/overview/
+// parts-list only), "part" (doc.parts holds exactly one part, no front/back
+// matter), or "back" (unplaced-notes/tag-index only). When a book is too
+// big for one pass, the browser generator compiles front + one "part" call
+// per Part + back, in that order, and concatenates the resulting PDFs --
+// a large real corpus overflows the WASM compiler's stack in one pass
+// (measured: a ~17,000-verse book crashes reliably in Chrome, though the
+// same document compiles fine via the native CLI, which gets a much larger
+// stack). "back" is its own mode (not folded into "front") so that after
+// concatenation those pages land at the actual end of the book.
+#let mode = sys.inputs.at("mode", default: "full")
+
+// ---- cross-file links ------------------------------------------------------
+//
+// When the book is compiled in pieces, a link can't reach into a different
+// PDF -- so a piece's targets and references can't find each other at compile
+// time. Instead every target emits an invisible marker annotation carrying
+// its key ("ttdef://<key>"), every reference emits a matching "ttref://<key>",
+// and the merge step (mergePdf.ts) resolves each ref to the real page once all
+// the pieces sit in one file. Typst passes unknown URI schemes through
+// verbatim as link annotations, which is what makes this work.
+//
+// In "full" mode none of this is needed: ordinary in-document links resolve.
+#let splitmode = mode != "full"
+#let anchor(key, body) = if splitmode { link("ttdef://" + key, body) } else { body }
+
+// A Part so large it had to be divided across several compiles: only the first
+// piece carries the Part title page and contents, the rest just continue.
+#let continued = sys.inputs.at("continued", default: "no") == "yes"
+
+// key -> absolute page number in the merged book, supplied by the caller once
+// every Part's length is known. Lets the tag index print true book page
+// numbers instead of per-Part relative ones.
+#let pagemap = if "pagemap" in sys.inputs { json(sys.inputs.at("pagemap")) } else { (:) }
+
 #let colw = 3.30in
 #let gapw = 0.18in
 #let notew = 1.52in
@@ -47,9 +83,21 @@
   },
   header: context {
     let hp = here().page()
-    let cur = none
-    for m in query(<rh>) { if m.location().page() <= hp { cur = m.value } }
-    if cur == none { return }
+    // Binary search, not a scan: this runs once per page, and a linear pass
+    // over every <rh> in the book made the header cost pages x markers --
+    // ~2.6M introspector lookups per layout pass on a real corpus, about a
+    // third of the compiler's peak memory. Query results come back in
+    // document order, so the last entry whose page <= hp is the current one.
+    let rhs = query(<rh>)
+    let lo = 0
+    let hi = rhs.len()
+    while lo < hi {
+      let mid = int((lo + hi) / 2)
+      if rhs.at(mid).location().page() <= hp { lo = mid + 1 } else { hi = mid }
+    }
+    if lo == 0 { return }
+    let cur = rhs.at(lo - 1).value
+    // <pm> is one marker per Part (a handful), so a scan is fine here.
     let pstart = 0
     for m in query(<pm>) { if m.location().page() <= hp { pstart = m.location().page() } }
     let folio = hp - pstart
@@ -162,7 +210,8 @@
 
   let vbody = {
     [#metadata(key)<vm>]
-    text(size: 8pt, fill: vnumcol)[#vs.num]
+    // the unit number doubles as this unit's cross-file anchor
+    anchor(key, text(size: 8pt, fill: vnumcol)[#vs.num])
     h(0.4em)
     for r in vs.runs { render-run(r) }
   }
@@ -235,7 +284,7 @@
 #let parts-page() = plain-page(context {
   v(1.1in)
   align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("The Parts")])
-  v(0.55in)
+  v(0.4in)
   set par(justify: false, leading: 0.6em, spacing: 0.8em)
   for part in doc.parts {
     let pl = query(<pm>).filter(x => x.value == pkey(part.key))
@@ -251,20 +300,28 @@
     }
     block(box(width: 100%, {
       let title = text(font: sans, weight: "medium", size: 11pt)[#part.title]
-      if ploc != none { link(ploc, title) } else { title }
+      if ploc != none { link(ploc, title) }
+      else if pkey(part.key) in pagemap { link("ttref://" + pkey(part.key), title) }
+      else { title }
       linebreak()
       text(size: 8.5pt, fill: notegray)[#summary]
     }))
   }
   v(1em)
-  let ul = query(<um>)
-  if ul.len() > 0 {
-    link(ul.first().location())[#text(font: sans, weight: "medium", size: 11pt)[Notes We Couldn't Place]]
+  if doc.at("unplacedNotes", default: ()).len() > 0 {
+    let label = text(font: sans, weight: "medium", size: 11pt)[Notes We Couldn't Place]
+    let ul = query(<um>)
+    if ul.len() > 0 { link(ul.first().location(), label) }
+    else if "unplaced-notes" in pagemap { link("ttref://unplaced-notes", label) }
+    else { label }
     linebreak()
   }
-  let il = query(<im>)
-  if il.len() > 0 {
-    link(il.first().location())[#text(font: sans, weight: "medium", size: 11pt)[Tag Index]]
+  {
+    let label = text(font: sans, weight: "medium", size: 11pt)[Tag Index]
+    let il = query(<im>)
+    if il.len() > 0 { link(il.first().location(), label) }
+    else if "tag-index" in pagemap { link("ttref://tag-index", label) }
+    else { label }
   }
 })
 
@@ -272,10 +329,11 @@
 #let part-toc(part) = plain-page(context {
   let pstart = query(<pm>).filter(x => x.value == pkey(part.key)).first().location().page()
   let relPage = loc => if loc == none { none } else { loc.page() - pstart }
-  let cmOf = m => {
-    let q = query(<cm>).filter(x => x.value == m)
-    if q.len() > 0 { q.first().location() } else { none }
-  }
+  // One pass to build the lookup, rather than re-filtering every <cm> in the
+  // book once per contents line (quadratic on a Part with 649 talks).
+  let cmMap = (:)
+  for m in query(<cm>) { if m.value not in cmMap { cmMap.insert(m.value, m.location()) } }
+  let cmOf = m => cmMap.at(m, default: none)
 
   // faint dotted leader between content and page number
   let leader = box(width: 1fr, inset: (x: 0.4em), repeat(text(fill: rgb("#c9c1b3"))[.], gap: 0.28em))
@@ -355,7 +413,8 @@
       [#metadata("unplaced-notes")<um>]
     }
     #v(0.5in)
-    #align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Notes We Couldn't Place")])
+    #align(center, anchor("unplaced-notes",
+      text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Notes We Couldn't Place")]))
     #v(0.2in)
     #align(center, box(width: 4in, text(size: 8.5pt, fill: notegray, style: "italic")[
       These notes' highlights couldn't be matched to a specific verse or
@@ -399,7 +458,8 @@
       [#metadata("tag-index")<im>]
     }
     #v(0.5in)
-    #align(center, text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Tag Index")])
+    #align(center, anchor("tag-index",
+      text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Tag Index")]))
     #v(0.35in)
     #set text(size: 8.5pt)
     #set par(justify: false, leading: 0.5em, spacing: 0.55em, hanging-indent: 1em)
@@ -418,12 +478,26 @@
             let seen = (:)
             let items = ()
             for r in e.refs {
-              if r.key not in vmap { continue }
-              let l = vmap.at(r.key)
-              let disp = if r.at("showPage", default: false) { r.label + ", p. " + str(relPage(l)) } else { r.label }
+              // Same document: link straight to the location, page relative to
+              // its Part. Split build: the target lives in another PDF, so use
+              // the caller-supplied absolute page and a cross-file marker that
+              // the merge step turns into a real jump.
+              let loc = vmap.at(r.key, default: none)
+              let abs = pagemap.at(r.key, default: none)
+              let showp = r.at("showPage", default: false)
+              let disp = if showp and loc != none {
+                r.label + ", p. " + str(relPage(loc))
+              } else if showp and abs != none {
+                r.label + ", p. " + str(abs)
+              } else { r.label }
               if disp in seen { continue }
               seen.insert(disp, true)
-              items.push(link(l)[#text(fill: notegray)[#disp]])
+              let body = text(fill: notegray)[#disp]
+              items.push(
+                if loc != none { link(loc, body) }
+                else if abs != none { link("ttref://" + r.key, body) }
+                else { body },
+              )
             }
             items.join(";  ")
           }
@@ -436,9 +510,11 @@
 
 // ---- assembly ----------------------------------------------------------------
 
-#title-page()
-#stats-page()
-#parts-page()
+#if mode == "full" or mode == "front" {
+  title-page()
+  stats-page()
+  parts-page()
+}
 
 #let gcw = colw  // (was narrower; keeping equal for now so margin notes align)
 
@@ -573,18 +649,29 @@
   }
 }
 
-#for part in doc.parts {
-  plain-page({
-    heading(level: 1)[#part.title]
-    [#metadata(pkey(part.key))<pm>]
-    v(2.6in)
-    align(center, text(font: sans, size: 17pt, weight: "medium", tracking: 0.16em)[#upper(part.title)])
-  })
-  part-toc(part)
-  if part.kind == "notebooks" { render-notebooks-part(part) }
-  else if part.kind == "scripture" { render-scripture-part(part) }
-  else if part.kind == "gc" { render-gc-part(part) }
+#if mode == "full" or mode == "part" {
+  for part in doc.parts {
+    if not continued {
+      plain-page({
+        heading(level: 1)[#part.title]
+        [#metadata(pkey(part.key))<pm>]
+        v(2.6in)
+        align(center, anchor(pkey(part.key),
+          text(font: sans, size: 17pt, weight: "medium", tracking: 0.16em)[#upper(part.title)]))
+      })
+      part-toc(part)
+    }
+    if part.kind == "notebooks" { render-notebooks-part(part) }
+    else if part.kind == "scripture" { render-scripture-part(part) }
+    else if part.kind == "gc" { render-gc-part(part) }
+  }
 }
 
-#unplaced-notes-section()
-#tag-index()
+// "back" is its own mode (not just folded into "front") so that when the
+// browser generator concatenates front + parts + back into one PDF, the
+// unplaced-notes/tag-index pages land at the actual end of the book instead
+// of right after the front matter.
+#if mode == "full" or mode == "back" {
+  unplaced-notes-section()
+  tag-index()
+}

@@ -13,7 +13,8 @@
   #log { white-space: pre-wrap; background: color-mix(in srgb, currentColor 6%, transparent);
          border-radius: .4em; padding: .75em 1em; font: 13px/1.5 ui-monospace, monospace; min-height: 4em; }
   button { font: inherit; padding: .5em 1em; }
-  a.download { display: inline-block; margin-top: 1em; }
+  #downloads { margin-top: 1em; display: grid; gap: .3em; }
+  #downloads a { display: inline-block; }
   #progress { font-size: .9em; opacity: .75; margin-top: .4em; }
   #report { margin-top: 1em; font-size: .9em; }
   #report summary { cursor: pointer; }
@@ -55,6 +56,7 @@
 <pre id="log">choose your annotations.json export…</pre>
 <div id="report" hidden></div>
 <div id="error" hidden></div>
+<div id="downloads"></div>
 
 <script type="importmap">
 { "imports": { "node-html-parser": "https://cdn.jsdelivr.net/npm/node-html-parser@9.0.3/dist/index.mjs" } }
@@ -63,7 +65,7 @@
 import { readEnvelope } from "./gen/envelope.js";
 import { ContentClientBrowser } from "./gen/browserContent.js";
 import { assembleBook } from "./gen/assembleBook.js";
-import { renderPdfBrowser } from "./gen/browserRender.js";
+import { renderBookAuto } from "./gen/browserRender.js";
 import { summarizeDiags } from "./gen/diagSummary.js";
 
 const fileInput = document.getElementById("file");
@@ -71,6 +73,13 @@ const goButton = document.getElementById("go");
 const logEl = document.getElementById("log");
 const reportEl = document.getElementById("report");
 const errorEl = document.getElementById("error");
+const downloadsEl = document.getElementById("downloads");
+
+function addDownload(filename, pdfBytes) {
+  const blob = new Blob([pdfBytes], { type: "application/pdf" });
+  const a = el("a", { href: URL.createObjectURL(blob), download: filename, textContent: `download ${filename}` });
+  downloadsEl.append(a);
+}
 
 function el(tag, props, children) {
   const node = document.createElement(tag);
@@ -176,8 +185,7 @@ fileInput.addEventListener("change", () => {
 
 goButton.addEventListener("click", async () => {
   goButton.disabled = true;
-  const oldLink = document.querySelector("a.download");
-  if (oldLink) oldLink.remove();
+  downloadsEl.replaceChildren();
   reportEl.hidden = true;
   errorEl.hidden = true;
   let stage = "reading";
@@ -216,17 +224,20 @@ goButton.addEventListener("click", async () => {
       "./fonts/EBGaramond.ttf", "./fonts/EBGaramond-Italic.ttf",
       "./fonts/Fraunces.ttf", "./fonts/Fraunces-Italic.ttf",
     ];
-    const pdfBytes = await renderPdfBrowser({ book, mainTypst, fonts });
-    log(`compiled — ${pdfBytes.length.toLocaleString()} bytes`);
+    const compileProgress = document.createElement("div");
+    compileProgress.id = "progress";
+    logEl.after(compileProgress);
+    const { pdf, split } = await renderBookAuto({
+      book, mainTypst, fonts,
+      onProgress: (label) => { compileProgress.textContent = `compiling ${label}…`; },
+    });
+    compileProgress.remove();
+    log(`compiled — ${pdf.length.toLocaleString()} bytes`);
 
-    const blob = new Blob([pdfBytes], { type: "application/pdf" });
-    const a = document.createElement("a");
-    a.className = "download";
-    a.href = URL.createObjectURL(blob);
-    a.download = "their-testament.pdf";
-    a.textContent = "download their-testament.pdf";
-    document.body.appendChild(a);
-    log("DONE");
+    addDownload("their-testament.pdf", pdf);
+    log(split
+      ? "DONE — this book was too large to lay out in one pass, so it was compiled in pieces and stitched back together; bookmarks and tag-index links work as normal"
+      : "DONE");
   } catch (e) {
     log("FAILED — see the message below");
     renderError(stage, e);

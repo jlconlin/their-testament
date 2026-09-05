@@ -511,6 +511,156 @@ completeness report → download, all verified live in a browser. Remaining
 before this is public: a nav link, and (still parked, unrelated to this
 work) the font-licensing decision above.
 
+### Per-Part packaging — revisited and implemented (2026-09-05)
+
+"Revisit if/when it actually happens to someone" (above) happened on the
+first real test against the user's own full export (19,872 annotations,
+~17,900 marked units): single-pass compile crashed reliably in Chrome —
+`RuntimeError: unreachable`, a wall of raw `wasm-function[N]` frames, no
+symbols. Diagnosed properly before building anything:
+
+- **It's a WASM call-stack limit, not the heap.** Parsed the compiler's own
+  `.wasm` binary — its Memory section declares no maximum, so it can grow;
+  the crash is Typst's layout recursion overrunning the WASM module's fixed
+  call stack (set at build time by the `typst-ts-web-compiler` project,
+  not configurable from our JS).
+- **Confirmed environment-specific, not data-specific.** The exact same
+  real `DocBook` compiled successfully in Node (30s, real 3.95 MB PDF) using
+  the identical WASM binary — so it's not that the document is "too big,"
+  full stop. A synthetic document at the *same scale* also succeeded
+  earlier, ruling out raw verse count as the sole predictor. Re-ran the real
+  document in a completely fresh Chrome tab (ruling out "memory pressure
+  from other tabs") — it crashed again, with the *identical* stack trace
+  (same function offsets, same order) both times. Chrome's renderer
+  evidently gives WASM a smaller stack than Node's process does, and this
+  document's layout recursion sits right past that line.
+- Considered rebuilding `typst-ts-web-compiler` from source with a bigger
+  linker-configured stack (would fix this without any of the below, and
+  without ever sacrificing hyperlinks) but rejected for now: it means taking
+  on a Rust + wasm-pack build toolchain this project doesn't have at all,
+  a heavier and different kind of complexity than anything else here.
+
+Implementation (`templates/book.typ` gained a `mode` input — `"full"`
+default/CLI, `"front"`, `"part"`, `"back"` — plus `src/browserRender.ts`,
+`src/mergePdf.ts`):
+
+- **Front / one-per-Part / back**, not front / one-per-Part like the
+  original deferred plan — unplaced-notes + tag index were originally
+  folded into "front," which put them right after the title page once
+  concatenated instead of at the true end of the book (caught from the
+  first real merged output). They're their own `"back"` mode now, merged
+  last.
+- **The split is a fallback, not a default** (`renderBookAuto`): try the
+  normal single-pass compile first, and only split if that throws. Small
+  personal books get the fully-linked one-pass result (better — the tag
+  index and "The Parts" list stay clickable); only the ones that actually
+  can't fit the WASM stack pay the split's cost. No size threshold to guess
+  at — verse count already proved to be an unreliable predictor above, so
+  trying is more honest than estimating.
+- **The split pieces are joined into one downloaded file, not left as a
+  dozen separate links** — the first working version returned front +
+  8 Parts + back as separate downloads; the user's reaction ("having a
+  dozen links is not very helpful") was fair, and simple page concatenation
+  (`mergePdfs` in `src/mergePdf.ts`, via `pdf-lib` loaded from jsdelivr, same
+  CDN-no-bundler pattern as typst.ts) covers it.
+- **PDF bookmarks survive the join.** `pdf-lib`'s `copyPages()` copies page
+  content but drops each source's `/Outlines` tree — a real, separate loss
+  the user caught immediately after the first merge shipped ("no bookmarks
+  at all... there's got to be a way"). `pdf-lib` has no built-in
+  outline/bookmark API (confirmed: its own `copy()` docstring calls this
+  out — "won't copy... outlines"), but does publicly export the low-level
+  PDF primitives (`PDFDict`, `PDFName`, `PDFRef`, `PDFArray`, `PDFString`,
+  `PDFHexString`, `PDFNumber`) needed to read and rebuild one by hand — a
+  documented, if unsweetened, part of its API, not a hack into internals.
+  `mergePdf.ts` walks each source's existing outline tree (Typst already
+  builds these correctly and nested — Part > Book > Chapter — per the
+  settled "bookmarks + hyperlinks" decision), remaps each item's target
+  page by position (`copyPages` preserves page order, so a source's local
+  page *N* is the *N*th page it contributed to the merged doc), and grafts
+  the rebuilt trees together as siblings in the new document's `/Outlines`.
+  Verified against the user's real compiled output with `pypdf`: all 1,718
+  outline entries across the full 1,678-page merged book, correctly nested,
+  every page target correct, ending with "Notes We Couldn't Place" and
+  "Tag Index" at the true end.
+- Confirmed real (not synthetic) end-to-end twice more after the fix: the
+  full real export split-compiled and merged cleanly with no crash, in the
+  same browser context that had crashed on the first attempt.
+
+### The above diagnosis was wrong — measured properly (2026-09-05)
+
+The split kept failing intermittently, so the crash was instrumented instead
+of reasoned about: the real compiler was run against the real book in Node
+with `WebAssembly.Memory` growth sampled throughout.
+
+- **It's memory, not the call stack.** The full book peaks at **4.20 GB —
+  64,088 of the 65,536 wasm32 pages** — and dies there. `memory.grow` fails
+  at the 4 GiB address-space ceiling, Rust's allocation-error handler calls
+  `abort`, and `abort` compiles to the wasm `unreachable` instruction. The
+  trap that looked like a stack overflow *is an out-of-memory abort*. The
+  earlier reasoning ("the Memory section declares no maximum, so it can
+  grow") was true and irrelevant: growth is capped by the 32-bit address
+  space regardless of what the module declares.
+- **There is a second, independent wall.** Relieve the memory pressure and
+  the compile gets further, then dies with a genuine
+  `RangeError: Maximum call stack size exceeded` at 3.22 GB. So one pass on
+  a book this size can't be rescued by saving memory alone — which is what
+  finally justified investing in the split rather than treating it as a
+  stopgap.
+- **The running header was quadratic.** It ran two full-document `query()`
+  scans *per page*: 1,560 `<rh>` markers x 1,678 pages ≈ 2.6M introspector
+  lookups per layout pass. Query results come back in document order, so a
+  binary search finds the same element — verified page-by-page against the
+  old code, including the case where a chapter starts mid-page (where
+  Typst's own documented `.before(here())` idiom silently differs, so it
+  was *not* used). Same fix in miniature for the per-Part contents page,
+  which re-filtered every `<cm>` once per line. Result on the full real
+  book: peak **4.20 GB → 2.32 GB**, native CLI **20.0s → 9.7s**, and the
+  extracted text of all 1,684 pages byte-identical to before.
+- **`createTypstCompiler()` does not give you a fresh heap.** Ten "fresh"
+  compilers created **2** wasm instances — typst.ts reuses one per realm,
+  and wasm linear memory never shrinks. So the Part-by-Part path cost the
+  *sum* of the pieces' peaks, finishing at **3.72 GB**, within 0.5 GB of the
+  ceiling that kills the single pass. That, not bad luck, is why it was
+  flaky. **Terminating a Worker is the only thing that actually frees the
+  memory**, so every piece now compiles in its own Worker that is terminated
+  as soon as it answers, and peak becomes the cost of the largest single
+  piece.
+- **Pieces are bisected on failure.** Parts are wildly uneven (649
+  conference talks in one, 5 chapters in another); "one chunk per Part" is
+  no guarantee any chunk fits. A piece that fails is halved and retried.
+
+### Cross-file links restored in split builds (2026-09-05)
+
+The split used to downgrade the tag index and the Parts list to plain text,
+because a PDF can't link into a different PDF. It doesn't have to stay that
+way once the pieces are in one file: every target emits an invisible link
+annotation with an unknown URI scheme (`ttdef://<key>`), every reference
+emits `ttref://<key>`, and `mergePdf.ts` resolves each reference to the page
+its anchor landed on, then strips the anchors. Typst passes unknown schemes
+through verbatim and `copyPages` preserves annotations, which is what makes
+link annotations usable as a data channel — the one machine-readable thing
+that survives both PDF export and the merge.
+
+Because the back matter compiles *after* every Part, their lengths are known
+by then, so the page map is fed back in and the tag index prints **true book
+page numbers** instead of the per-Part relative ones it used to show. The
+front matter is then recompiled with the finished map so its Parts list
+links too (kept only if its page count didn't move, since the offsets were
+measured from the first version).
+
+This also caught a pre-existing bug in the merge: `copyPages` carries link
+annotations across but re-points their `/Dest` at a *duplicate* of the
+target page that never enters the page tree, so all 2,221 of Typst's own
+in-document links (every per-Part contents page) were dead in merged output.
+Targets are now recorded by position before the copy and re-pointed after,
+the same remap the outline tree already needed.
+
+Verified on the real book: 1,683 pages, 5,673 cross-file jumps and 2,221
+internal links all resolving inside the document, zero unresolved or
+leftover markers, all 1,718 outline entries intact, and spot-checked page
+numbers landing on the right talk (tag index "O-23, Wright, p. 1421" → page
+1421 is Amy A. Wright's "Abide the Day in Christ" from October 2023).
+
 ### Friendly failure messages (added 2026-09-04)
 
 A failure used to just dump `FAILED: ${e.stack}` into the log — not

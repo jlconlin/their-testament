@@ -27,6 +27,7 @@
     "src/notebooks.ts",
     "src/assembleBook.ts",
     "src/browserContent.ts",
-    "src/browserRender.ts"
+    "src/browserRender.ts",
+    "src/mergePdf.ts"
   ]
 }
