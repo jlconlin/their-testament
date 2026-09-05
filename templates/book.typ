@@ -20,7 +20,7 @@
   dark_blue: rgb("#2596FF"), purple: rgb("#9D53FE"), brown: rgb("#C06B45"),
   gray: rgb("#93A0AA"),
 )
-#let sans = "Optima"   // headings & titles (body stays serif)
+#let sans = "Fraunces"   // headings & titles (body stays serif)
 #let ink = rgb("#1a1712")
 #let notegray = rgb("#544f49")
 #let tagcol = rgb("#8a7f6f")
@@ -58,7 +58,7 @@
   },
   header-ascent: 45%,
 )
-#set text(font: "Adobe Garamond Pro", size: 10.5pt, fill: ink, lang: "en", number-type: "old-style")
+#set text(font: "EB Garamond", size: 10.5pt, fill: ink, lang: "en", number-type: "old-style")
 #set par(justify: true, leading: 0.58em, spacing: 0.62em, linebreaks: "optimized")
 
 // Headings drive the PDF outline (bookmarks) only; we render our own visuals.

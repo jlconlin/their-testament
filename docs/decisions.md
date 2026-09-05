@@ -275,14 +275,58 @@ Full spec: [annotations-format.md](annotations-format.md).
     sample record IDs from `annotations-format.md`, and to drop the two
     `docs/private/` files entirely.
 
-### Open — must resolve before M6 (the browser generator)
+### Font licensing — resolved (2026-09-04)
 
-- **Font licensing.** Body = Adobe Garamond Pro, headings = Optima — both
-  commercial, cannot be served to the public by a browser app. Need SIL OFL
-  replacements before M6 (EB Garamond is a near drop-in for the body; Optima
-  has no clean OFL clone — pick a face or drop the contrasting heading font).
-  The local/personal build may keep the real fonts, gated on context.
-  *User wants to discuss separately — do not decide yet.*
+Body = Adobe Garamond Pro, headings = Optima were both commercial and
+couldn't be served to the public by a browser app — this was the one
+blocker that had to resolve before M6 (the browser generator) could go
+live. Considered and rejected as a general solution: the browser's **Local
+Font Access API** (`window.queryLocalFonts()`) could let the generator use
+a visitor's own installed Adobe Garamond Pro/Optima, if they happen to have
+it — but it's Chromium-only (no Safari/Firefox), permission-gated, and
+legally ambiguous (reading a commercial font's bytes into a web page, even
+locally, isn't clearly covered by every font's EULA). At best a future
+progressive enhancement layered on a real OFL default, never a substitute
+for choosing one.
+
+Built `typeset/heading-font-comparison-ofl.typ` — same mini-layout as the
+original commercial-font `heading-specimen.typ`, but body fixed to EB
+Garamond and 11 OFL-only heading candidates: dropping the contrasting font
+entirely (EB Garamond, tracked caps), three serifs in the body's own family
+lineage (Fraunces, Spectral, Cormorant Garamond), and seven sans options
+spanning geometric to humanist (Jost, Montserrat, Nunito Sans, Libre
+Franklin, Barlow, Public Sans, Questrial). Compiled and visually verified
+(real glyphs, no font-fallback warnings) against font files pulled from
+google/fonts's OFL directory; PDF sent to the user for review.
+
+**Decision: Fraunces for headings, EB Garamond for the body** — both
+already the site's own web fonts (`web/fonts/`), so one license pair covers
+the whole product, and the book now shares a visual identity with the
+landing page instead of two unrelated typefaces. Optima dropped entirely,
+no fallback-font compromise needed.
+
+Implemented everywhere, not just decided:
+- `templates/book.typ`: `sans = "Fraunces"` (was `"Optima"`), body
+  `#set text(font: "EB Garamond", ...)` (was `"Adobe Garamond Pro"`).
+- Real `.ttf` files (the full variable fonts from google/fonts — Typst
+  needs raw sfnt, not woff2) added to `web/fonts/`: `Fraunces.ttf`,
+  `Fraunces-Italic.ttf`, `EBGaramond.ttf`, `EBGaramond-Italic.ttf`. Already
+  covered by the existing `LICENSE-Fraunces.txt`/`LICENSE-EBGaramond.txt`
+  (same families, just a different file format).
+- Node CLI (`src/render.ts`): `--font-path` now includes the project's own
+  `web/fonts/` alongside `~/Library/Fonts`, so a fresh clone renders
+  correctly with no font install step (personal path still checked first,
+  in case someone wants to override).
+- Browser (`generate.html`/`browserRender.ts`): the four `.ttf` files are
+  now passed to typst.ts's `loadFonts()` as self-hosted relative URLs
+  (`./fonts/...`) — no dependency on typst.ts's own bundled defaults, no
+  third-party font CDN.
+
+Verified both paths for real, not just typechecked: `scripts/build-sample.ts`
+recompiled cleanly and visually confirmed Fraunces/EB Garamond glyphs in the
+output; the browser path was run through the actual page UI and the
+resulting PDF's embedded font subsets read `Fraunces-9ptBlack`,
+`EBGaramond-Regular`, `EBGaramond-Italic` — the real fonts, not a fallback.
 
 ### Domain / hosting (2026-09-03)
 

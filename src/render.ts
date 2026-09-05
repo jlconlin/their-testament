@@ -3,7 +3,10 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import type { DocBook } from "./types.ts";
 
-const FONT_PATH = `${process.env.HOME}/Library/Fonts`;
+// Personal ~/Library/Fonts first (lets a local build override with anything
+// installed), then the project's own bundled OFL fonts -- so a fresh clone
+// renders correctly with no font install step.
+const PERSONAL_FONT_PATH = `${process.env.HOME}/Library/Fonts`;
 
 /**
  * Write the doc-model JSON and compile the Typst template to PDF.
@@ -28,7 +31,8 @@ export function renderPdf(opts: {
     [
       "compile",
       "--root", root,
-      "--font-path", FONT_PATH,
+      "--font-path", PERSONAL_FONT_PATH,
+      "--font-path", resolve(root, "web/fonts"),
       "--input", `doc=/${jsonRel}`,
       resolve(root, opts.template),
       pdfAbs,

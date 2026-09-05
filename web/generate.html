@@ -32,9 +32,8 @@
 <body>
 <h1>Their Testament — generator (dev scaffold)</h1>
 <p class="note">
-  Not linked from the public site yet — M6 scaffolding only. Uses default
-  (non-final) fonts pending the licensing decision in decisions.md; a first
-  run fetches every marked chapter/talk from the Church's content API
+  Not linked from the public site yet — M6 scaffolding only. A first run
+  fetches every marked chapter/talk from the Church's content API
   (rate-limited), so it can take a while for a large export.
 </p>
 
@@ -213,7 +212,11 @@ goButton.addEventListener("click", async () => {
 
     log("compiling to PDF (typst-wasm)…");
     stage = "compiling";
-    const pdfBytes = await renderPdfBrowser({ book, mainTypst });
+    const fonts = [
+      "./fonts/EBGaramond.ttf", "./fonts/EBGaramond-Italic.ttf",
+      "./fonts/Fraunces.ttf", "./fonts/Fraunces-Italic.ttf",
+    ];
+    const pdfBytes = await renderPdfBrowser({ book, mainTypst, fonts });
     log(`compiled — ${pdfBytes.length.toLocaleString()} bytes`);
 
     const blob = new Blob([pdfBytes], { type: "application/pdf" });

@@ -45,7 +45,8 @@ npx tsx scripts/build-job.ts                                # build one book (Jo
 ```
 
 Needs [Typst](https://github.com/typst/typst) on PATH (`brew install typst`).
-Fonts for the book are configured per-run; see `docs/decisions.md`.
+Fonts (Fraunces + EB Garamond) are bundled in `web/fonts/` — no install
+step; see `docs/decisions.md` ("Font licensing") for how that was chosen.
 
 ## The website
 
