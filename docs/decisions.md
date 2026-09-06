@@ -166,6 +166,16 @@ split.
     per-Part is also what the browser generator must do.
 29. **Mobile phone support is out of scope.** Desktop + iPad only. The bookmarklet
     (M5) works on both; "Android export" is dropped from the roadmap.
+    **Amended 2026-09-05: iPad is not a requirement for *making* a book.**
+    Treating it as one was a mistake. The tool — bookmarklet *and* generator —
+    is desktop-first; working on an iPad is welcome but never a constraint on
+    a design choice. Two reasons it was wrong: installing a bookmarklet on
+    iPad Safari means adding a bookmark and then editing its URL to paste
+    `javascript:` (the worst path in the product), and generation now peaks
+    around 1.0 GB of wasm per piece, which iPadOS Safari is unlikely to allow
+    and quick to kill a tab over. **Decision 12 is untouched** — the PDF is
+    still tablet-first *to read*, which is the thing the iPad is actually for
+    here.
 30. **A person's own words are never altered.** Notes and note titles render
     verbatim — no abbreviating, correcting, or reflowing. The only transformation
     is structural HTML → typeset (bold / italic / lists / links / paragraph
