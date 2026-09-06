@@ -1079,3 +1079,12 @@ on. Appears in both "full" and "front" modes, so split builds carry it too.
 If the pending permissions request (#L26-64433) returns with required
 attribution wording, this page is where it goes — a single function in
 `templates/book.typ`.
+
+
+**URL forms (2026-09-06):** Cloudflare Pages serves pages extensionless and
+307-redirects the `.html` form (`/preserve.html` → `/preserve`); the local dev
+server does the opposite, serving only `.html`. Internal links therefore keep
+the `.html` form so local development works, accepting one redirect hop in
+production. The `canonical` tag and `sitemap.xml` name the extensionless
+production URL, since those are production-only and should not advertise a
+redirect. Don't "fix" one to match the other without checking both ends.
