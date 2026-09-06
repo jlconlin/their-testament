@@ -793,3 +793,36 @@ belongs with the per-Part packaging work below, not before it exists.
 Verified live: set a name and mirrored margins, generated, and the output
 byte count changed (18,055 vs. 17,780 bytes for the same annotations)
 confirming both options actually reach the compiled PDF, not just the form.
+
+## Next up — agreed, not yet started (as of 2026-09-05)
+
+Parked deliberately so the compile work could land first. In priority order:
+
+1. **Content-fetch concurrency.** Now the longest stage by far — ~1,560
+   documents at a 400 ms serial gate is ~10 minutes, against a compile that
+   is now ~40 seconds. Plan: a prefetch pass that derives the document URIs
+   from the annotations and warms IndexedDB through a pool of 4–6, leaving
+   the existing serial assembly untouched (it becomes all cache hits).
+   **Prerequisite: retry/backoff on 429 + 5xx.** Today a non-OK response is
+   recorded as a failure and the content silently drops out of the book, so
+   raising concurrency without backoff would quietly degrade someone's
+   keepsake. Deliberately staying polite (4–6, not unbounded): this runs from
+   the visitor's own IP against someone else's service, and getting *them*
+   rate-limited is a worse failure than being slow.
+2. **The generator UI.** Fold `generate.html` into the main page — one page,
+   not two. Change `onProgress` from a bare label to structured
+   `{done, total, label}` so the progress bar is honest: the fetch stage
+   already tracks `{fetched, cacheHits, failed}` against a known total, and
+   the compile stage now knows its piece count up front.
+3. **Fraunces rendering.** The chosen font "looks quite awful" in the actual
+   PDF versus the specimen. Deferred mid-session to avoid a detour; still
+   unexamined.
+4. **M8** — analytics + a spam-resistant contact route. Note the dependency:
+   without any usage measurement we are guessing about where visitors give up
+   (see the bookmarklet-onboarding question).
+
+Tuning note: the piece-size numbers above were measured in Node, with a
+process per piece standing in for a terminated Worker. Chrome gives wasm a
+smaller stack, so `PIECE_UNIT_CAP` may want lowering once a large book has
+been run through a real browser. A piece that still overshoots is caught by
+bisection, so the failure mode is a slower run, not a broken one.
