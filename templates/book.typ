@@ -56,7 +56,17 @@
   dark_blue: rgb("#2596FF"), purple: rgb("#9D53FE"), brown: rgb("#C06B45"),
   gray: rgb("#93A0AA"),
 )
-#let sans = "Fraunces"   // headings & titles (body stays serif)
+// Marcellus: a flared, glyphic Roman -- the open-licensed face closest to
+// Optima, which this design was originally drawn around. It is deliberately a
+// *sans* against the serif body: that contrast is the point, and it was lost
+// while Fraunces (a serif) held this slot.
+//
+// It ships exactly one face -- no bold, no italic -- and Typst substitutes
+// Regular silently, with no warning and no synthesised slant. That costs
+// nothing here: `weight: "medium"` resolves to Regular in Optima too (Optima
+// ships only 400 and 700), and nothing sets the display font bold. But if you
+// ever reach for bold or italic on `sans`, it will quietly do nothing.
+#let sans = "Marcellus"   // headings & titles (body stays serif)
 #let ink = rgb("#1a1712")
 #let notegray = rgb("#544f49")
 #let tagcol = rgb("#8a7f6f")
@@ -639,7 +649,9 @@
           for v in e.verses { nb-verse(v) }
         } else if e.kind == "citation" {
           set par(justify: false, leading: 0.5em)
-          text(font: sans, size: 8.5pt, fill: notegray, style: "italic")[#e.refLabel]
+          // body serif, not `sans`: Marcellus has no italic, and a cited
+          // source reads properly in a real italic anyway
+          text(size: 8.5pt, fill: notegray, style: "italic")[#e.refLabel]
           if e.note != none {
             parbreak(); set text(size: 8.5pt, fill: notegray); e.note
           }

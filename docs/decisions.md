@@ -852,3 +852,53 @@ process per piece standing in for a terminated Worker. Chrome gives wasm a
 smaller stack, so `PIECE_UNIT_CAP` may want lowering once a large book has
 been run through a real browser. A piece that still overshoots is caught by
 bisection, so the failure mode is a slower run, not a broken one.
+
+### Heading font revised: Marcellus, not Fraunces (2026-09-06)
+
+The Fraunces decision above stood for two days and was wrong on one axis
+nobody checked: **Fraunces is a serif.** Optima — what the layout was
+actually drawn around — is a flared humanist *sans*, so the original design
+ran a sans display face against a serif body. Swapping in another serif
+quietly removed that contrast, and the pages went flat in a way that was
+hard to name ("all renderings just don't jive with me although I can't put
+my finger on why"). The candidate bake-off did include seven sans options,
+so this wasn't for lack of choice; the comparison was made on individual
+specimens rather than against the body text it had to contrast with, and the
+serif/sans distinction never surfaced as the deciding question.
+
+Two red herrings chased first, both real defects, neither the actual problem:
+
+- **Typst renders a variable font's default instance**, and Fraunces defaults
+  to `opsz 9, SOFT 0, WONK 1` — its sharp, small-text cut. The landing page
+  never shows that face (`index.html` sets `font-optical-sizing: auto` plus
+  `"SOFT" 40, "WONK" 0` and renders far larger), so site and PDF genuinely
+  disagreed. Typst 0.15's `text(variations: ...)` fixes it with no extra font
+  files. Measured before believing: **opsz is the only lever that matters**,
+  SOFT is subtle, and **WONK changes nothing** for our glyphs — verified
+  against genuinely pre-instanced files, not by trusting the axis.
+- All of which improved Fraunces without making it the right *category*.
+
+**Decision: `sans = "Marcellus"`** (OFL, google/fonts) — the open face closest
+to Optima, confirmed by cropping running heads, chapter headings and part
+titles from real compiled pages and comparing the three side by side. All the
+Fraunces optical-size machinery was reverted, since a single-face font has no
+axes to drive.
+
+Marcellus ships one face. Typst substitutes Regular **silently** — no warning,
+no synthesised bold, not even a faux oblique (checked). The cost is near zero:
+`weight: "medium"` (16 sites) resolves to Regular under **Optima too**, which
+ships only 400 and 700, so nothing is lost against the design that was liked;
+nothing sets the display font bold; and the single italic use (the citation
+label at the notebook-entry site) moved to the body serif's real italic, which
+suits a cited source better anyway. The trap is that this stays silent — a
+future bold or italic on `sans` will do nothing — so it is recorded at the
+font definition and in `web/fonts/README.md`.
+
+**Left open:** `index.html` still uses Fraunces, including the mock spread in
+the hero, so the site now advertises a face the tool doesn't produce. The
+Fraunces files stay only because the site references them. Resolve by moving
+the site to Marcellus and dropping them.
+
+**Also watch:** Marcellus's stroke contrast is exactly what makes it read like
+Optima, and the running heads are 7.5pt in a light gray (`headcol`). Fine on
+screen; if it prints weak, darken `headcol` rather than changing the face.
