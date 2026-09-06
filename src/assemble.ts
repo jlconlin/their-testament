@@ -1,8 +1,8 @@
 import type {
   Annotation, ContentSource, DocChapter, DocPart, Highlight, TagIndexEntry,
 } from "./types.ts";
-import { parseVerses } from "./verses.ts";
-import { assembleUnits, type Diag, type UnplacedNote } from "./units.ts";
+import { parseVerses, parseHeadingUnits } from "./verses.ts";
+import { assembleUnits, markHeadingUnits, type Diag, type UnplacedNote } from "./units.ts";
 
 export type { TagIndexEntry };
 
@@ -89,8 +89,11 @@ export async function assembleScriptureBook(
       continue;
     }
     const verses = parseVerses(page, chapter);
+    // the section summary, but only if this reader actually marked it
+    const headingMarks = markHeadingUnits(parseHeadingUnits(page), byChapter.get(chapter)!);
 
     const res = assembleUnits(verses, byChapter.get(chapter)!, {
+      leadingTokens: 1, // the verse number is word 1 in the source paragraph
       inScope: inBook,
       label: `${spec.name} ${chapter}`,
       rangeLabel: (refs) => `${refs[0]}–${refs.at(-1)!.split(":").at(-1)}`,
@@ -123,6 +126,7 @@ export async function assembleScriptureBook(
         chapterWord: spec.chapterWord ?? "Chapter",
         verses: res.docVerses,
         chapterNotes: res.chapterNotes.length ? res.chapterNotes : undefined,
+        headingMarks: headingMarks.length ? headingMarks : undefined,
       });
     }
   }

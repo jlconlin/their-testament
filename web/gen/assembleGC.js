@@ -1,5 +1,6 @@
 import { parseTalk } from "./talk.js";
-import { assembleUnits } from "./units.js";
+import { parseHeadingUnits } from "./verses.js";
+import { assembleUnits, markHeadingUnits } from "./units.js";
 const MONTHS = { "04": "April", "10": "October" };
 function talkOrder(confBody) {
     const slugs = confBody.match(/\/general-conference\/\d{4}\/\d{2}\/([a-z0-9-]+)/g) ?? [];
@@ -57,7 +58,10 @@ export async function assembleConferencePart(annotations, years, content, partKe
             }
             const parsed = parseTalk(page);
             const talkKey = `${partKey}|${year}-${month}|${slug}`; // must match template tkey (conf.key = "YYYY-MM")
+            // the talk's kicker, but only if this reader actually marked it
+            const headingMarks = markHeadingUnits(parseHeadingUnits(page), byTalk.get(slug));
             const res = assembleUnits(parsed.paragraphs, byTalk.get(slug), {
+                furniturePids: new Set(parsed.furniturePids),
                 inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
                 label: `${parsed.title}`,
                 rangeLabel: (refs) => `¶ ${paraNum(parsed, refs[0])}–${paraNum(parsed, refs.at(-1))}`,
@@ -93,6 +97,7 @@ export async function assembleConferencePart(annotations, years, content, partKe
                     role: parsed.role,
                     paragraphs: res.docVerses,
                     chapterNotes: res.chapterNotes.length ? res.chapterNotes : undefined,
+                    headingMarks: headingMarks.length ? headingMarks : undefined,
                 });
             }
         }

@@ -204,6 +204,25 @@
 // A note whose highlight landed on the chapter heading or study summary
 // belongs to the whole chapter, not one verse -- so it sits under the heading,
 // full measure, rather than in the margin beside a verse it never referred to.
+// A chapter summary or a talk's kicker, shown only because the reader marked
+// it. Set in the apparatus voice -- italic, smaller, indented -- so it reads as
+// the book's own furniture rather than as scripture, with their highlight
+// reproduced exactly as on any verse.
+#let heading-mark-block(units) = {
+  if units.len() == 0 { return }
+  v(0.10in)
+  align(center, box(width: colw, {
+    set par(justify: false, leading: 0.52em, spacing: 0.4em)
+    set text(size: 8.4pt, style: "italic", fill: notegray)
+    for u in units {
+      block(width: 100%, inset: (x: 0.6em), {
+        for r in u.runs { render-run(r) }
+      })
+    }
+  }))
+  v(0.12in)
+}
+
 #let chapter-note-block(notes) = {
   if notes.len() == 0 { return }
   v(0.10in)
@@ -382,7 +401,7 @@
   }
   v(1em)
   if doc.at("unplacedNotes", default: ()).len() > 0 {
-    let label = text(font: sans, weight: "medium", size: 11pt)[Notes We Couldn't Place]
+    let label = text(font: sans, weight: "medium", size: 11pt)[Miscellaneous]
     let ul = query(<um>)
     if ul.len() > 0 { link(ul.first().location(), label) }
     else if "unplaced-notes" in pagemap { link("ttref://unplaced-notes", label) }
@@ -489,15 +508,15 @@
   if notes.len() == 0 { return }
   page(numbering: none, margin: matter-margin, header: context {
     set text(font: sans, size: 7.5pt, tracking: 0.16em, fill: headcol)
-    upper("Notes We Couldn't Place")
+    upper("Miscellaneous")
   })[
     #{
-      heading(level: 1)[Notes We Couldn't Place]
+      heading(level: 1)[Miscellaneous]
       [#metadata("unplaced-notes")<um>]
     }
     #v(0.5in)
     #align(center, anchor("unplaced-notes",
-      text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Notes We Couldn't Place")]))
+      text(font: sans, size: 12pt, weight: "medium", tracking: 0.22em)[#upper("Miscellaneous")]))
     #v(0.2in)
     #align(center, box(width: 4in, text(size: 8.5pt, fill: notegray, style: "italic")[
       These notes' highlights couldn't be matched to a specific verse or
@@ -620,6 +639,7 @@
       align(center, box(width: colw)[#align(center,
         text(font: sans, size: 12pt, weight: "medium", tracking: 0.08em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
       v(0.2in)
+      heading-mark-block(ch.at("headingMarks", default: ()))
       chapter-note-block(ch.at("chapterNotes", default: ()))
       verse(part.key, ch.book, ch.chapter, ch.verses.first())
     })
@@ -660,6 +680,7 @@
           }
         }))
         v(0.24in)
+        heading-mark-block(talk.at("headingMarks", default: ()))
         chapter-note-block(talk.at("chapterNotes", default: ()))
         if talk.paragraphs.len() > 0 {
           unit(tkey + "|" + talk.paragraphs.first().ref, talk.paragraphs.first(), kind: "para", cw: gcw)

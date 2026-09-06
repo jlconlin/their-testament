@@ -15,7 +15,7 @@ import type { DocVerse, Mark, Verse } from "./types.ts";
  * (unlike the main pipeline, a `clear` highlight still surfaces the verse — in
  * a collection the highlight *is* the content).
  */
-function passageVerses(a: Annotation, units: Verse[], docUri: string): DocVerse[] {
+function passageVerses(a: Annotation, units: Verse[], docUri: string, leadingTokens = 0): DocVerse[] {
   const byAid = new Map(units.map((u) => [u.aid, u]));
   const byVid = new Map(units.map((u) => [u.vid, u]));
   const marksByRef = new Map<string, Mark[]>();
@@ -27,7 +27,7 @@ function passageVerses(a: Annotation, units: Verse[], docUri: string): DocVerse[
     if (!u) continue;
     touched.set(u.ref, u);
     if (h.color !== "clear") {
-      const loc = locate(u.text, h.startOffset, h.endOffset);
+      const loc = locate(u.text, h.startOffset, h.endOffset, leadingTokens);
       marksByRef.set(u.ref, [
         ...(marksByRef.get(u.ref) ?? []),
         { start: loc.start, end: loc.end, color: h.color, style: h.style ? "underline" : "fill", substring: loc.substring },
@@ -155,7 +155,8 @@ export async function assembleNotebooksPart(
 
       const talk = meta.kind === "scripture" ? null : parseTalk(page);
       const units = meta.kind === "scripture" ? parseVerses(page, meta.chapter) : talk!.paragraphs;
-      const docVerses = passageVerses(a, units, meta.docUri);
+      // scripture verses carry a leading number in the source; talks do not
+      const docVerses = passageVerses(a, units, meta.docUri, meta.kind === "scripture" ? 1 : 0);
       if (docVerses.length === 0) {
         // highlight landed on a title / heading — render as a citation to the piece
         const cls = classify(a.highlights![0]!.uri);

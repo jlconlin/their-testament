@@ -1,6 +1,7 @@
 import type { Annotation, ContentSource, DocConference, DocPart, DocTalk, Highlight } from "./types.ts";
 import { parseTalk } from "./talk.ts";
-import { assembleUnits, type Diag, type UnplacedNote } from "./units.ts";
+import { parseHeadingUnits } from "./verses.ts";
+import { assembleUnits, markHeadingUnits, type Diag, type UnplacedNote } from "./units.ts";
 import type { TagEntry } from "./assemble.ts";
 
 const MONTHS: Record<string, string> = { "04": "April", "10": "October" };
@@ -68,7 +69,10 @@ export async function assembleConferencePart(
       const parsed = parseTalk(page);
       const talkKey = `${partKey}|${year}-${month}|${slug}`; // must match template tkey (conf.key = "YYYY-MM")
 
+      // the talk's kicker, but only if this reader actually marked it
+      const headingMarks = markHeadingUnits(parseHeadingUnits(page), byTalk.get(slug)!);
       const res = assembleUnits(parsed.paragraphs, byTalk.get(slug)!, {
+        furniturePids: new Set(parsed.furniturePids),
         inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
         label: `${parsed.title}`,
         rangeLabel: (refs) =>
@@ -107,6 +111,7 @@ export async function assembleConferencePart(
           role: parsed.role,
           paragraphs: res.docVerses,
           chapterNotes: res.chapterNotes.length ? res.chapterNotes : undefined,
+          headingMarks: headingMarks.length ? headingMarks : undefined,
         });
       }
     }

@@ -6,16 +6,49 @@ import { segment } from "./segment.js";
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const style = (h) => (h.style ? "underline" : "fill");
 /**
+ * Apply highlights to a chapter's summary or a talk's kicker.
+ *
+ * These are not units of the book -- the apparatus is headings and verse text
+ * (decision 8) -- but a highlight on one is still a mark the person made, and
+ * a mark with nowhere to appear is a mark silently dropped. Returns only the
+ * pieces that actually carry a mark, so a summary nobody touched stays out of
+ * the book.
+ */
+export function markHeadingUnits(units, anns) {
+    const byAid = new Map(units.map((u) => [u.aid, u]));
+    const byVid = new Map(units.map((u) => [u.vid, u]));
+    const marksByRef = new Map();
+    for (const a of anns) {
+        for (const h of a.highlights ?? []) {
+            if (h.color === "clear")
+                continue; // no visual mark to reproduce
+            const key = (h.uri ?? "").match(/\.([A-Za-z_][\w]*)$/)?.[1] ?? "";
+            const u = byAid.get(h.pid) ?? byVid.get(key);
+            if (!u)
+                continue;
+            const loc = locate(u.text, h.startOffset, h.endOffset, u.leadingTokens ?? 0);
+            marksByRef.set(u.ref, [
+                ...(marksByRef.get(u.ref) ?? []),
+                { start: loc.start, end: loc.end, color: h.color, style: style(h), substring: loc.substring },
+            ]);
+        }
+    }
+    const out = [];
+    for (const u of units) {
+        const marks = (marksByRef.get(u.ref) ?? []).sort((x, y) => x.start - y.start);
+        if (!marks.length)
+            continue;
+        out.push({ ref: u.ref, num: 0, runs: segment(u.text, marks, u.styles), marks, notes: [], gapBefore: false });
+    }
+    return out;
+}
+/**
  * Anchors that name a piece of a chapter's furniture rather than a verse.
  * `parseVerses` only ever yields verses, so a highlight on one of these has a
  * pid that exists in the page yet matches nothing in the lookup -- which is
  * how a perfectly locatable note used to end up "unplaceable".
  */
 const HEADING_ANCHOR = /\.(title|title_number|study_intro|study_summary|intro|subtitle|kicker)\d*$/;
-/** True when every in-scope highlight points at chapter furniture. */
-function isChapterLevel(uris) {
-    return uris.length > 0 && uris.every((u) => HEADING_ANCHOR.test(u));
-}
 export function assembleUnits(units, anns, opts) {
     const byAid = new Map(units.map((u) => [u.aid, u]));
     const byVid = new Map(units.map((u) => [u.vid, u]));
@@ -55,8 +88,18 @@ export function assembleUnits(units, anns, opts) {
             const u = byAid.get(h.pid) ??
                 byVid.get((h.uri ?? "").match(/\.(p[\w-]+)(?:[?]|$)/)?.[1] ?? "");
             if (!u) {
+                // A highlight on the chapter heading, its number, or the study summary
+                // has no verse to mark -- that is the shape of the source, not a
+                // failure to find something. Kept as its own category so it stops
+                // inflating the failure count; a pid-no-match that survives this check
+                // is a genuine miss worth showing.
+                const onFurniture = HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
                 noMatch.push(`${opts.label}: ${h.uri}`);
-                diags.push({ annotationId: a.annotationId, created, unitRef: h.pid, category: "pid-no-match", detail: h.uri });
+                diags.push({
+                    annotationId: a.annotationId, created, unitRef: h.pid,
+                    category: onFurniture ? "heading-highlight" : "pid-no-match",
+                    detail: h.uri,
+                });
                 continue;
             }
             spanRefs.push(u.ref);
@@ -66,7 +109,7 @@ export function assembleUnits(units, anns, opts) {
                 diags.push({ annotationId: a.annotationId, created, unitRef: u.ref, category: "clear" });
                 continue;
             }
-            const loc = locate(u.text, h.startOffset, h.endOffset);
+            const loc = locate(u.text, h.startOffset, h.endOffset, u.leadingTokens ?? opts.leadingTokens ?? 0);
             marksByRef.set(u.ref, [
                 ...(marksByRef.get(u.ref) ?? []),
                 { start: loc.start, end: loc.end, color: h.color, style: style(h), substring: loc.substring },
@@ -92,8 +135,9 @@ export function assembleUnits(units, anns, opts) {
             const contributes = body.length > 0 || !!a.note?.title || a.tags.length > 0;
             // A highlight on the chapter heading, its number, or the study summary
             // is a note about the whole chapter -- we know exactly where it belongs,
-            // so keep it here rather than sending it to "Notes We Couldn't Place".
-            if (contributes && isChapterLevel(hs.map((h) => h.uri ?? ""))) {
+            // so keep it here rather than sending it to "Miscellaneous".
+            const allFurniture = hs.length > 0 && hs.every((h) => HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid));
+            if (contributes && allFurniture) {
                 diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
                     detail: hs.map((h) => h.uri).join(",") });
                 chapterNotes.push({
@@ -126,11 +170,17 @@ export function assembleUnits(units, anns, opts) {
             : null;
         const refLabel = spanRefs.length > 1 ? opts.rangeLabel(spanRefs) : opts.unitLabel(spanRefs[0]);
         const body = parseNote(a.note?.content);
-        const emptyNote = a.note?.content && body.length === 0;
-        if (emptyNote) {
+        const emptyNote = !!a.note?.content && body.length === 0;
+        // Gospel Library stores an untouched note as "<div></div>". Nothing was
+        // written, so nothing was lost -- that is not a failure to report, it is
+        // simply an empty note. Only flag the case that *would* mean a bug: real
+        // text going in and nothing coming out of the parser.
+        const hadText = (a.note?.content ?? "").replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").trim().length > 0;
+        if (emptyNote && hadText) {
             diags.push({ annotationId: a.annotationId, created, unitRef: anchorRef, category: "note-parse-empty" });
         }
-        // a whitespace-only note with no title and no tags contributes nothing — skip it
+        // an empty note with no title and no tags contributes nothing — skip it.
+        // With a tag it stays: the tag is the point, and it still reaches the index.
         if (emptyNote && !a.note?.title && a.tags.length === 0)
             continue;
         if (hasText || a.tags.length) {

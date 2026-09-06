@@ -1190,3 +1190,67 @@ imports never resolve, no listener attaches, and the Generate button sits
 disabled with nothing to explain why — which is exactly how Jeremy hit it, in a
 preview tab an editor had opened. The page now detects a non-http(s) protocol
 and says so in place of the log text.
+
+
+### Every scripture highlight was one word off (2026-09-06)
+
+The largest correctness bug found so far, and it was invisible: **all ~16,700
+scripture highlights were marking one word to the right of what was selected.**
+
+Gospel Library's word offsets are measured over the whole source paragraph, and
+a verse's paragraph begins with its number —
+`<span class="verse-number">31 </span>And Jacob said…`. The number is word 1, so
+every real word sits one further along than in the text we parse. Only the
+cases where the offset ran past the end of the verse ever surfaced, as 74
+`whole-unit-fallback` warnings; the rest silently mis-marked.
+
+Measured before being believed, across 400 scripture highlights: the share of
+marked spans ending on punctuation goes from **11.5% to 56.0%** when shifted by
+one, and starting after punctuation from 7.0% to 29.3%. In plain terms,
+`"shall purify the sons of Levi, and"` becomes `"he shall purify the sons of
+Levi,"`, and a highlight reading just `"and"` becomes `"answered"`.
+
+**Scoped, not global.** General Conference paragraphs carry no number, and
+testing them separately proved the shift is wrong there — 63.2% as-is against
+13.6% shifted, the opposite direction. Applying it everywhere would have broken
+every conference highlight. `leadingTokens` therefore lives on each parsed unit
+(1 when a verse number was stripped, 0 otherwise) rather than being assumed per
+call, which is also what makes Official Declarations correct.
+
+### Everything a reader marked now appears (2026-09-06)
+
+Four changes took the completeness report from 59 failures to **zero**, without
+hiding anything:
+
+- **Official Declarations parse at all.** `parseVerses` selects `p.verse`, and
+  OD pages contain none — they are plain numbered paragraphs, more like a talk.
+  They parsed to nothing, so every highlight on them reported a missing pid.
+  There is now a fallback to numbered paragraphs when no verse markup exists.
+- **Notes on a talk title** are talk-level notes. Both cases carried an
+  ordinary-looking anchor (`.p1`), so no URI pattern could catch them;
+  `parseTalk` now reports the pids of its title, byline, role and kicker.
+- **Marked summaries and kickers are typeset.** A highlight on a chapter
+  summary or a talk's kicker used to render nothing at all. The rule now:
+  *include the summary only if the reader marked it* — decision 8's minimal
+  apparatus holds for everything untouched, but no mark goes unrepresented.
+  Seven summaries and five kickers on the real export.
+- **Empty notes are skipped, not failed.** Gospel Library stores an untouched
+  note as `<div></div>`; nothing was written, so nothing was lost. The
+  diagnostic still fires when real text goes in and nothing comes out, which
+  would be a parser bug worth seeing.
+
+A highlight on a chapter heading is likewise no longer counted as a failure:
+there is no verse to mark, which is the shape of the source rather than a
+failure to find something. That alone was 40 of the original 59.
+
+### The completeness report says what happened (2026-09-06)
+
+It used to lead with "59 failed", which frightened people about nothing — the
+"failures" were headings, empty notes, and notes safely kept in Miscellaneous.
+Someone who has just made a book about a parent should not have to decode a
+category table to learn whether their marks survived. It now leads with the
+answer ("Everything you marked is in your book"), lists in plain words what
+happened to anything unusual, and keeps every detail row one click away.
+
+"Notes We Couldn't Place" is renamed **Miscellaneous** — with everything now
+placed, that section is empty for the real export and no longer renders.

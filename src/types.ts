@@ -85,6 +85,13 @@ export interface Verse {
   num: number;
   text: string;   // reading text, whitespace-collapsed, no verse number / footnote letters
   styles: [number, number, InlineStyleKind][];
+  /**
+   * Words the Gospel Library counted before this unit's text: 1 when a verse
+   * number was stripped from the front, 0 when there was none. locate() needs
+   * it because the offsets are measured over the source paragraph, number
+   * included -- see locate() and decisions.md.
+   */
+  leadingTokens?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -151,6 +158,8 @@ export interface DocChapter {
   verses: DocVerse[];
   /** notes highlighted on the chapter heading/summary rather than a verse */
   chapterNotes?: Note[];
+  /** the chapter summary, included only when the reader highlighted it */
+  headingMarks?: DocVerse[];
 }
 
 // General Conference ---------------------------------------------------------
@@ -163,6 +172,8 @@ export interface DocTalk {
   paragraphs: DocVerse[];    // same shape as verses; `num` is the paragraph ordinal
   /** notes highlighted on the talk title rather than a paragraph */
   chapterNotes?: Note[];
+  /** the talk's kicker, included only when the reader highlighted it */
+  headingMarks?: DocVerse[];
 }
 
 export interface DocConference {

@@ -247,6 +247,9 @@
   #downloads a { font-family:var(--sans); font-size:.95rem; font-weight:600; }
 
   #report { margin-top:1.4em; font-size:1rem; }
+  #make .report-headline { font-family:var(--disp); font-size:1.2rem; margin:0 0 .5em; }
+  #make .report-notes { margin:0 0 .8em; padding-left:1.1em; color:var(--ink-soft); font-size:.95rem; }
+  #make .report-notes li { margin:.25em 0; }
   #report summary { cursor:pointer; font-family:var(--sans); font-size:.85rem; color:var(--ink-soft); }
   #report table { border-collapse:collapse; margin-top:.6em; width:100%; }
   #report td { padding:.2em .6em .2em 0; vertical-align:top; font:12px/1.45 ui-monospace,monospace; }
@@ -792,30 +795,58 @@ function el(tag, props, children) {
 
 // Plain-language translations -- "pid-no-match" means nothing to a real user.
 const CATEGORY_LABEL = {
-  "pid-no-match": "couldn't find this verse/paragraph (the page may have changed since this was marked)",
-  "empty-span": "highlight had no length — marked the whole verse/paragraph instead",
-  "whole-unit-fallback": "highlight's position had shifted — marked the whole verse/paragraph instead",
-  "note-no-anchor": "note's highlight couldn't be placed — preserved separately (see below)",
-  "note-parse-empty": "note content didn't parse — may be unusual formatting",
+  "pid-no-match": "this highlight sat on a paragraph the tool can't read, so it isn't shown",
+  "empty-span": "the highlighted words couldn't be pinned down — the whole verse is marked instead",
+  "whole-unit-fallback": "the highlighted words couldn't be pinned down — the whole verse is marked instead",
+  "note-no-anchor": "this note's highlight couldn't be placed — the note is kept in Miscellaneous",
+  "note-parse-empty": "this note was empty",
+  "heading-highlight": "highlighted on a chapter heading, where there's no verse to mark",
+  "chapter-note": "written on a chapter heading — placed at the top of that chapter",
 };
 
+/**
+ * The report a person sees after making their keepsake.
+ *
+ * It used to lead with "59 failed", which frightened people about nothing:
+ * almost every "failure" was a highlight on a chapter heading (no verse to
+ * mark), an empty note, or a note safely kept in Miscellaneous. Someone who
+ * has just made a book about a parent should not have to decode a category
+ * table to find out whether their marks survived. So: lead with the answer,
+ * keep every detail, and put it one click away.
+ */
 function renderReport(summary, unplacedCount) {
   reportEl.hidden = false;
   reportEl.replaceChildren();
 
-  const rows = [...summary.warningRows.map((d) => [d, "cat-warning"]), ...summary.failedRows.map((d) => [d, "cat-failed"])];
-  reportEl.append(el("strong", { textContent: "Completeness: " }));
-  reportEl.append(document.createTextNode(
-    `${summary.clean} clean · ${summary.warning} warning(s) · ${summary.failed} failed ` +
-    `(of ${summary.total} marked verses/paragraphs)`,
-  ));
-  if (unplacedCount) {
-    reportEl.append(el("p", {
-      textContent: `${unplacedCount} note(s) couldn't be attached to a specific spot — they're kept in a ` +
-        `"Notes We Couldn't Place" section near the back of the book instead of being dropped.`,
-    }));
+  const n = (k) => summary.byCategory[k] ?? 0;
+  const notShown = n("pid-no-match");        // the only genuine loss
+  const whole = n("whole-unit-fallback") + n("empty-span");
+
+  // Say what is missing, rather than quoting a ratio that needs decoding. A
+  // verse marked in full is still in the book; a highlight on a heading was
+  // never a verse. The only real absence is a highlight we couldn't render.
+  reportEl.append(el("p", { className: "report-headline", textContent:
+    notShown === 0
+      ? `Everything you marked is in your book — all ${summary.total.toLocaleString()} of them.`
+      : `Everything you marked is in your book, apart from ${notShown} highlight${notShown === 1 ? "" : "s"} ` +
+        `on a page this tool can't read.` }));
+
+  const notes = [];
+  if (whole) notes.push(`${whole.toLocaleString()} verse${whole === 1 ? " is" : "s are"} marked in full, ` +
+    `because the exact words you selected couldn't be pinned down.`);
+  if (n("heading-highlight")) notes.push(`${n("heading-highlight")} highlight${n("heading-highlight") === 1 ? " was" : "s were"} ` +
+    `on a chapter heading or summary. Where you marked words, those words are shown beneath the heading; ` +
+    `where you chose no color, the tag or note carries on its own.`);
+  if (n("chapter-note")) notes.push(`${n("chapter-note")} note${n("chapter-note") === 1 ? "" : "s"} written on a chapter heading ` +
+    `${n("chapter-note") === 1 ? "sits" : "sit"} at the top of that chapter.`);
+  if (unplacedCount) notes.push(`${unplacedCount} note${unplacedCount === 1 ? "" : "s"} couldn't be attached to a spot, ` +
+    `so ${unplacedCount === 1 ? "it's" : "they're"} kept in "Miscellaneous" near the back rather than dropped.`);
+
+  if (notes.length) {
+    reportEl.append(el("ul", { className: "report-notes" }, notes.map((t) => el("li", { textContent: t }))));
   }
 
+  const rows = [...summary.warningRows.map((d) => [d, "cat-warning"]), ...summary.failedRows.map((d) => [d, "cat-failed"])];
   if (!rows.length) return;
   const table = el("table", {}, [
     el("tr", {}, [
@@ -829,11 +860,10 @@ function renderReport(summary, unplacedCount) {
       el("td", { textContent: d.annotationId }),
     ])),
   ]);
-  const details = el("details", {}, [
-    el("summary", { textContent: `show the ${rows.length} non-clean row(s)` }),
+  reportEl.append(el("details", {}, [
+    el("summary", { textContent: `Show the ${rows.length} row${rows.length === 1 ? "" : "s"} behind this` }),
     table,
-  ]);
-  reportEl.append(details);
+  ]));
 }
 
 const log = (msg) => { logEl.textContent += "\n" + msg; };

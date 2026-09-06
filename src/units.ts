@@ -9,6 +9,43 @@ import { segment } from "./segment.ts";
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const style = (h: Highlight): "fill" | "underline" => (h.style ? "underline" : "fill");
 
+/**
+ * Apply highlights to a chapter's summary or a talk's kicker.
+ *
+ * These are not units of the book -- the apparatus is headings and verse text
+ * (decision 8) -- but a highlight on one is still a mark the person made, and
+ * a mark with nowhere to appear is a mark silently dropped. Returns only the
+ * pieces that actually carry a mark, so a summary nobody touched stays out of
+ * the book.
+ */
+export function markHeadingUnits(units: Verse[], anns: Annotation[]): DocVerse[] {
+  const byAid = new Map(units.map((u) => [u.aid, u]));
+  const byVid = new Map(units.map((u) => [u.vid, u]));
+  const marksByRef = new Map<string, Mark[]>();
+
+  for (const a of anns) {
+    for (const h of a.highlights ?? []) {
+      if (h.color === "clear") continue;   // no visual mark to reproduce
+      const key = (h.uri ?? "").match(/\.([A-Za-z_][\w]*)$/)?.[1] ?? "";
+      const u = byAid.get(h.pid) ?? byVid.get(key);
+      if (!u) continue;
+      const loc = locate(u.text, h.startOffset, h.endOffset, u.leadingTokens ?? 0);
+      marksByRef.set(u.ref, [
+        ...(marksByRef.get(u.ref) ?? []),
+        { start: loc.start, end: loc.end, color: h.color, style: style(h), substring: loc.substring },
+      ]);
+    }
+  }
+
+  const out: DocVerse[] = [];
+  for (const u of units) {
+    const marks = (marksByRef.get(u.ref) ?? []).sort((x, y) => x.start - y.start);
+    if (!marks.length) continue;
+    out.push({ ref: u.ref, num: 0, runs: segment(u.text, marks, u.styles), marks, notes: [], gapBefore: false });
+  }
+  return out;
+}
+
 export interface LocatedRow {
   ref: string; color: string; style: string;
   offsets: string; status: string; sample: string;
@@ -22,6 +59,7 @@ export type DiagCategory =
   | "clear"              // clear color — intentionally no visual mark
   | "note-no-anchor"     // annotation has a note/tags but no highlight to anchor it
   | "chapter-note"       // highlight was on the chapter heading/summary -- kept at chapter level
+  | "heading-highlight"  // highlight sat on a heading/summary with no note -- nothing to mark
   | "note-parse-empty";  // note had content but parsed to nothing
 
 export interface Diag {
@@ -75,11 +113,6 @@ export interface UnitsResult {
  */
 const HEADING_ANCHOR = /\.(title|title_number|study_intro|study_summary|intro|subtitle|kicker)\d*$/;
 
-/** True when every in-scope highlight points at chapter furniture. */
-function isChapterLevel(uris: string[]): boolean {
-  return uris.length > 0 && uris.every((u) => HEADING_ANCHOR.test(u));
-}
-
 export function assembleUnits(
   units: Verse[],
   anns: Annotation[],
@@ -92,6 +125,19 @@ export function assembleUnits(
     rangeLabel: (refs: string[]) => string;
     /** how a single-unit note's ref reads (e.g. "1:20" or "¶ 5") */
     unitLabel: (ref: string) => string;
+    /**
+     * Words the Gospel Library counted before this unit's text. Scripture
+     * verses are preceded by their number in the source paragraph, so their
+     * offsets run one ahead; conference paragraphs are not. See locate().
+     */
+    leadingTokens?: number;
+    /**
+     * pids of headings/bylines that are not units. A highlight on one is a
+     * note about the whole piece, not a broken reference -- and for a talk
+     * title the URI looks like any other paragraph, so the pid is the only
+     * way to tell.
+     */
+    furniturePids?: Set<string>;
   },
 ): UnitsResult {
   const byAid = new Map(units.map((u) => [u.aid, u]));
@@ -129,8 +175,18 @@ export function assembleUnits(
         byAid.get(h.pid) ??
         byVid.get((h.uri ?? "").match(/\.(p[\w-]+)(?:[?]|$)/)?.[1] ?? "");
       if (!u) {
+        // A highlight on the chapter heading, its number, or the study summary
+        // has no verse to mark -- that is the shape of the source, not a
+        // failure to find something. Kept as its own category so it stops
+        // inflating the failure count; a pid-no-match that survives this check
+        // is a genuine miss worth showing.
+        const onFurniture = HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
         noMatch.push(`${opts.label}: ${h.uri}`);
-        diags.push({ annotationId: a.annotationId, created, unitRef: h.pid, category: "pid-no-match", detail: h.uri });
+        diags.push({
+          annotationId: a.annotationId, created, unitRef: h.pid,
+          category: onFurniture ? "heading-highlight" : "pid-no-match",
+          detail: h.uri,
+        });
         continue;
       }
       spanRefs.push(u.ref);
@@ -140,7 +196,7 @@ export function assembleUnits(
         diags.push({ annotationId: a.annotationId, created, unitRef: u.ref, category: "clear" });
         continue;
       }
-      const loc = locate(u.text, h.startOffset, h.endOffset);
+      const loc = locate(u.text, h.startOffset, h.endOffset, u.leadingTokens ?? opts.leadingTokens ?? 0);
       marksByRef.set(u.ref, [
         ...(marksByRef.get(u.ref) ?? []),
         { start: loc.start, end: loc.end, color: h.color, style: style(h), substring: loc.substring },
@@ -166,8 +222,10 @@ export function assembleUnits(
 
       // A highlight on the chapter heading, its number, or the study summary
       // is a note about the whole chapter -- we know exactly where it belongs,
-      // so keep it here rather than sending it to "Notes We Couldn't Place".
-      if (contributes && isChapterLevel(hs.map((h) => h.uri ?? ""))) {
+      // so keep it here rather than sending it to "Miscellaneous".
+      const allFurniture = hs.length > 0 && hs.every((h) =>
+        HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid));
+      if (contributes && allFurniture) {
         diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
           detail: hs.map((h) => h.uri).join(",") });
         chapterNotes.push({
@@ -201,11 +259,17 @@ export function assembleUnits(
       : null;
     const refLabel = spanRefs.length > 1 ? opts.rangeLabel(spanRefs) : opts.unitLabel(spanRefs[0]!);
     const body = parseNote(a.note?.content);
-    const emptyNote = a.note?.content && body.length === 0;
-    if (emptyNote) {
+    const emptyNote = !!a.note?.content && body.length === 0;
+    // Gospel Library stores an untouched note as "<div></div>". Nothing was
+    // written, so nothing was lost -- that is not a failure to report, it is
+    // simply an empty note. Only flag the case that *would* mean a bug: real
+    // text going in and nothing coming out of the parser.
+    const hadText = (a.note?.content ?? "").replace(/<[^>]+>/g, "").replace(/&nbsp;/gi, " ").trim().length > 0;
+    if (emptyNote && hadText) {
       diags.push({ annotationId: a.annotationId, created, unitRef: anchorRef, category: "note-parse-empty" });
     }
-    // a whitespace-only note with no title and no tags contributes nothing — skip it
+    // an empty note with no title and no tags contributes nothing — skip it.
+    // With a tag it stays: the tag is the point, and it still reaches the index.
     if (emptyNote && !a.note?.title && a.tags.length === 0) continue;
     if (hasText || a.tags.length) {
       diags.push({

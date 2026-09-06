@@ -7,7 +7,11 @@ export type DiagLevel = "clean" | "warning" | "failed";
 
 export const FAIL_CATEGORIES: DiagCategory[] = ["pid-no-match", "empty-span", "note-no-anchor", "note-parse-empty"];
 export const WARN_CATEGORIES: DiagCategory[] = ["whole-unit-fallback"];
-export const OK_CATEGORIES: DiagCategory[] = ["located", "clear"];
+// "chapter-note" and "heading-highlight" are outcomes, not problems: the first
+// places a note at the head of its chapter, the second is a highlight on a
+// heading where there is no verse to mark. Neither loses anything, so neither
+// belongs in a failure count shown to someone who just made a keepsake.
+export const OK_CATEGORIES: DiagCategory[] = ["located", "clear", "chapter-note", "heading-highlight"];
 
 export function diagLevel(category: DiagCategory): DiagLevel {
   if (FAIL_CATEGORIES.includes(category)) return "failed";

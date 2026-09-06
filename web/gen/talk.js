@@ -19,6 +19,14 @@ export function parseTalk(page) {
         speaker = byline.replace(/^By\s+/i, "");
     const role = root.querySelector("p.author-role")?.text.trim() || null;
     const kicker = root.querySelector("p.kicker")?.text.trim() || null;
+    const furniturePids = [];
+    for (const sel of ["h1", "p.author-name", "p.author-role", "p.kicker", "p.subtitle"]) {
+        for (const el of root.querySelectorAll(sel)) {
+            const aid = el.getAttribute("data-aid");
+            if (aid)
+                furniturePids.push(aid);
+        }
+    }
     const paragraphs = [];
     let n = 0;
     for (const p of root.querySelectorAll(".body-block p, .body-block li")) {
@@ -32,5 +40,5 @@ export function parseTalk(page) {
         n += 1;
         paragraphs.push({ ref: id, vid: id, aid, num: n, text, styles });
     }
-    return { title, speaker, role, kicker, paragraphs };
+    return { title, speaker, role, kicker, paragraphs, furniturePids };
 }

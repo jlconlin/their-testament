@@ -27,9 +27,57 @@ export function parseVerses(page, chapter) {
         // OT/NT (which carry data-eng-ref) and BoM/D&C/PoGP (which don't).
         const ref = chapter != null ? `${chapter}:${num}` : engRef ?? `${num}`;
         const { text, styles } = extract(p);
-        verses.push({ ref, vid, aid, num, text, styles });
+        // the verse number was stripped from `text`, but the offsets still count it
+        verses.push({ ref, vid, aid, num, text, styles, leadingTokens: vnMatch ? 1 : 0 });
+    }
+    if (verses.length > 0)
+        return verses;
+    // Official Declarations (and anything else published without verse markup)
+    // carry no `p.verse` at all -- just numbered paragraphs, more like a talk
+    // than a chapter. Without this they parse to nothing, every highlight on
+    // them reports pid-no-match, and any note goes to Miscellaneous. They have
+    // no verse number either, so nothing is stripped and leadingTokens is 0.
+    for (const p of root.querySelectorAll("p[id]")) {
+        const vid = p.getAttribute("id") ?? "";
+        if (!/^p\d+$/.test(vid))
+            continue;
+        const aid = p.getAttribute("data-aid") ?? "";
+        const { text, styles } = extract(p);
+        if (!text.trim())
+            continue;
+        const num = Number(vid.slice(1));
+        verses.push({
+            ref: chapter != null ? `${chapter}:${num}` : String(num),
+            vid, aid, num, text, styles, leadingTokens: 0,
+        });
     }
     return verses;
+}
+/**
+ * The chapter's furniture -- its summary/intro line -- as addressable units.
+ *
+ * Not part of the book's apparatus by default (decision 8: headings and verse
+ * text only). But a person who highlighted the summary marked those words, and
+ * a mark with nowhere to appear is a mark silently dropped. Callers include
+ * one only when a highlight actually lands on it.
+ */
+export function parseHeadingUnits(page) {
+    const root = parse(page.content.body, { blockTextElements: {} });
+    const out = [];
+    for (const sel of ["p.study-intro", "p.study-summary", "p.studyIntro", "p.intro", "p.subtitle", "p.kicker",
+        "#study_intro1", "#study_summary1", ".study-intro", ".study-summary"]) {
+        for (const el of root.querySelectorAll(sel)) {
+            const vid = el.getAttribute("id") ?? "";
+            const aid = el.getAttribute("data-aid") ?? "";
+            if (!aid || out.some((u) => u.aid === aid))
+                continue;
+            const { text, styles } = extract(el);
+            if (!text.trim())
+                continue;
+            out.push({ ref: vid || aid, vid, aid, num: 0, text, styles, leadingTokens: 0 });
+        }
+    }
+    return out;
 }
 /** Reading text + inline style spans for a paragraph-ish element (verse or talk paragraph). */
 export function extractText(p) {
