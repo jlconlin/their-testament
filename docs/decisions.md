@@ -830,6 +830,22 @@ Parked deliberately so the compile work could land first. In priority order:
 4. **M8** — analytics + a spam-resistant contact route. Note the dependency:
    without any usage measurement we are guessing about where visitors give up
    (see the bookmarklet-onboarding question).
+5. **A short walkthrough video for the export step** (added 2026-09-06). The
+   install is the clunkiest part of the product and the part most likely to
+   lose a non-technical visitor; for that audience a ~40-second screen
+   recording is worth more than any amount of prose. Desktop only now that
+   decision 29 is amended, which is what makes it cheap — the iPad path
+   (add a bookmark, then edit its URL to paste `javascript:`) was the one no
+   video could make look easy. Pairs with browser-detected instructions
+   (⌘⇧B / Ctrl+Shift+B to reveal the bookmarks bar) and a printable
+   one-page sheet, since much of the audience is being helped through this
+   by someone else.
+
+Not on this list because it sits with Jeremy, not the code: whether the
+annotations can be obtained some other way (an official bulk export, if one
+exists) would change the acquisition story more than any amount of onboarding
+polish, and the bookmarklet would become the fallback rather than the front
+door.
 
 Tuning note: the piece-size numbers above were measured in Node, with a
 process per piece standing in for a terminated Worker. Chrome gives wasm a
