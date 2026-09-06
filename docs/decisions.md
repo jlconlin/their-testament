@@ -51,7 +51,7 @@ Numbered to match the grilling. "flag" = a config toggle, not hard-coded.
     Stragglers (JST x8, Family Proclamation x4, Bible Dictionary x2, Guide to Scriptures x2):
     fold into nearest Part or a catch-all, decide later. Manuals/magazines: place when added.
 
-23. Front matter (uses full page width, symmetric margins -- no notes there): title page (title default "The Marked Scriptures of ___", + name + date);
+23. Front matter (uses full page width, symmetric margins -- no notes there): title page (title + optional name + date; default title **"Scripture Markings"** since 2026-09-06, was "The Marked Scriptures" -- and the title is now editable in the generator, see "Title and name are both optional" below);
     auto stats/overview page (date range, counts, top tags); optional user-written preface;
     detailed TOC (Parts -> books -> chapters with content).
     Back matter: tag index (all 644, Part-qualified); colophon (generated-from / date / Typst / tool).
@@ -1006,3 +1006,76 @@ should still be answered on its merits when it returns.
 
 Nothing about the request changes: it described a web tool distributing
 user-marked excerpts, which is exactly what is now live.
+
+
+### Home page: saying what it is (2026-09-06)
+
+The page had a tone people liked and a purpose nobody could find. Read cold, it
+never said what the thing *does* — and it contradicted itself: the hero spoke
+of "the scriptures **they** marked" while the FAQ said it "reads the
+annotations **you've** already made." Both cannot be the frame, and neither
+was introduced.
+
+- **The hero now states the purpose before the poetry**, in two beats: what it
+  makes ("so a lifetime of scripture study outlives the app it was kept in"),
+  then the payoff ("open it to a passage and you can see what they were
+  thinking the day they read it").
+- **A new section, "A record of how someone read," sits second** — before any
+  description of craft. The old order described *what the book contains*
+  (colours, lettering, running heads) long before saying why anyone would want
+  one.
+- **The you/they contradiction is answered outright**, in copy and in a new FAQ
+  entry: the export reads the account you are signed in to, so a book of
+  someone else's study means sitting down and making it together — "because
+  they can tell you what belongs in it." The site deliberately does **not**
+  coach anyone into signing in as a relative.
+- **The iPad FAQ was stale** against the amended decision 29 and now says to
+  use a computer, while noting the finished PDF reads well on a tablet.
+
+### Preserving the record at all (2026-09-06)
+
+Gospel Library notes can be deleted **two years** after a death if nobody has
+said otherwise. That is more consequential than anything else on the site, so
+it gets its own page, `web/preserve.html`, with a one-paragraph pointer from
+the home page rather than a heavy section in position three.
+
+Two independent routes, and the second is the one families do not know about:
+setting your wishes in life at `account.churchofjesuschrist.org/legacyContacts`
+(reachable equally from *Settings* on the notes page — confirmed by Jeremy),
+and, after a death, a spouse/parent/legal custodian writing to the Church's
+Data Privacy Office to request access. The page is explicit that this is the
+Church's own process and that Their Testament can neither retrieve nor see
+anyone's notes.
+
+### Book title: "Scripture Markings", and now editable (2026-09-06)
+
+The default was "The Marked Scriptures", where "Marked" reads passive and
+faintly clinical — it names the mechanism, not the meaning. Now **"Scripture
+Markings"**, chosen after setting the candidates in Marcellus at real size:
+the type supplies the warmth, so the words do not have to, and a
+self-describing title serves an heirloom that will outlive its context.
+Rejected: "The Scriptures of John Smith" (reads as scriptures *authored by*
+him) and "His Scriptures" (needs his/her logic, redundant with the name below).
+
+**Correction that changed the design:** the title had been assumed editable and
+was not — the generator only ever passed `personName`, so every book got the
+hardcoded default. Both fields are now optional inputs; a blank or
+whitespace-only title falls back to the default (hence `?.trim() ||`, not
+`??`). Verified across all five combinations of the two fields.
+
+### Copyright page (2026-09-06)
+
+The generated book reproduces Church-owned text and said nothing about it.
+There is now a copyright page on the **verso of the title leaf** — the
+conventional place, and it keeps the title page uncluttered. It quotes the
+operative permission from churchofjesuschrist.org's terms of use ("downloaded
+and printed for personal, noncommercial use") rather than claiming a licence
+that has not been granted; states that only personally marked passages appear
+and the scriptures are not reproduced in full; separates Church-owned text
+from the reader's own notes; and says the book is **not for sale or
+redistribution**, since selling it would fall outside the permission it relies
+on. Appears in both "full" and "front" modes, so split builds carry it too.
+
+If the pending permissions request (#L26-64433) returns with required
+attribution wording, this page is where it goes — a single function in
+`templates/book.typ`.

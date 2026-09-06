@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Their Testament — the scriptures they marked, kept as a book</title>
-<meta name="description" content="Their Testament turns a lifetime of Gospel Library highlights, margin notes, and tags into a typeset keepsake book — every marked verse in its original color, every note in the margin, unedited. An independent project. Runs entirely in your browser.">
+<meta name="description" content="Turn years of Gospel Library highlights and margin notes into a printed book, so a lifetime of scripture study outlives the app it was kept in — every marked verse in its original colour, every note beside it, unedited. An independent project. Runs entirely in your browser.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="canonical" href="https://theirtestament.org/">
 
 <meta property="og:type" content="website">
 <meta property="og:title" content="Their Testament">
-<meta property="og:description" content="The scriptures they marked, kept as a book. An independent keepsake-making project.">
+<meta property="og:description" content="Years of Gospel Library highlights and margin notes, turned into a printed book — so a lifetime of scripture study outlives the app it was kept in.">
 <meta property="og:url" content="https://theirtestament.org/">
 <meta property="og:image" content="https://theirtestament.org/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -117,13 +117,16 @@
 
   .wrap { max-width: 62rem; margin: 0 auto; padding: 0 1.5rem; }
   .prose { max-width: 39rem; }
+  .aside-note { font-size: 1.02rem; color: var(--ink-soft); border-left: 2px solid var(--rule);
+    padding-left: 1rem; }
   .eyebrow {
     font-family: var(--sans); font-size: .74rem; font-weight: 600;
     letter-spacing: .16em; text-transform: uppercase; color: var(--accent);
     margin: 0 0 1rem;
   }
   section { padding: clamp(3.5rem, 8vw, 6.5rem) 0; border-top: 1px solid var(--rule); }
-  section > .wrap > h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); margin-bottom: 1.4rem; }
+  section > .wrap > h2,
+  section > .wrap > .prose > h2 { font-size: clamp(1.8rem, 4vw, 2.5rem); margin-bottom: 1.4rem; }
 
   /* ---- top bar -------------------------------------------------- */
   .topbar {
@@ -145,9 +148,10 @@
     font-size: clamp(2.6rem, 7vw, 4.6rem);
     max-width: 16ch; margin-bottom: 1.3rem;
   }
-  .hero .lede { font-size: 1.35rem; color: var(--ink-soft); max-width: 34rem; }
+  .hero .lede { font-size: 1.35rem; color: var(--ink); max-width: 34rem; }
+  .hero .lede-2 { font-size: 1.12rem; color: var(--ink-soft); max-width: 34rem; margin-top: -.4rem; }
   .hero-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(2rem, 5vw, 4rem); align-items: center; }
-  @media (max-width: 54rem) { .hero-grid { grid-template-columns: 1fr; } .hero .lede { max-width: 40rem; } }
+  @media (max-width: 54rem) { .hero-grid { grid-template-columns: 1fr; } .hero .lede, .hero .lede-2 { max-width: 40rem; } }
   .hero-cta { margin-top: 1.9rem; display: flex; align-items: baseline; gap: 1.4rem; flex-wrap: wrap;
     font-family: var(--sans); font-size: .92rem; }
   .hero-cta a.jump { color: var(--ink-soft); text-decoration: none; }
@@ -214,6 +218,8 @@
   #make label { font-size:1rem; }
   #make input[type=text] { font:inherit; font-size:1rem; padding:.35em .5em; border:1px solid var(--rule);
     border-radius:.3em; background:var(--paper-2); color:var(--ink); width:100%; max-width:22rem; }
+  #make .field-note { display:block; font-family:var(--sans); font-size:.78rem;
+    color:var(--ink-soft); margin-top:.3em; max-width:32rem; }
   #make input[type=file] { font-family:var(--sans); font-size:.9rem; }
 
   #make button { font-family:var(--sans); font-size:.95rem; font-weight:600; padding:.6em 1.3em;
@@ -377,9 +383,14 @@
         <p class="eyebrow">A keepsake, not an app</p>
         <h1>The scriptures they&nbsp;marked, kept as a&nbsp;book.</h1>
         <p class="lede">
-          Their Testament gathers a lifetime of Gospel Library highlights, margin
-          notes, and tags into a typeset book — every verse they marked shown in
-          the color they chose, every note beside it, in their own words.
+          Years of highlights and margin notes in the Gospel Library app,
+          turned into a printed book — so a lifetime of scripture study
+          outlives the app it was kept in.
+        </p>
+        <p class="lede-2">
+          Open it to a passage and you can see what they were thinking the day
+          they read it: the verse marked in the colour they chose, their note
+          beside it, in their own words.
         </p>
         <div class="hero-cta">
           <a class="jump" href="#how">See how it works ↓</a>
@@ -415,6 +426,38 @@
     </div>
   </div>
 </header>
+
+<section id="why-it-matters">
+  <div class="wrap">
+    <div class="prose">
+      <p class="eyebrow">What it's for</p>
+      <h2>A record of how someone read.</h2>
+      <p>
+        Marking scripture is a lifetime's habit, and almost all of it stays
+        locked in an app: thousands of highlights, notes written in the margin
+        of a screen, tags nobody else will ever see. It can't be handed to
+        anyone. It doesn't survive a lost password.
+      </p>
+      <p>
+        Their Testament turns those annotations into a book. Not a data export
+        — a bound volume you can read in an armchair, where a grandchild can
+        turn to a passage and find, in their grandmother's own words, what she
+        was thinking the morning she marked it.
+      </p>
+      <p>
+        Make one from your own years of study, or sit down with someone you
+        love and make theirs together, while you can still ask them what a
+        note meant.
+      </p>
+      <p class="aside-note">
+        Gospel Library notes can be deleted two years after a death if nobody
+        has said otherwise — and a family whose relative has already died can
+        still ask for them.
+        <a href="preserve.html">How to keep them safe →</a>
+      </p>
+    </div>
+  </div>
+</section>
 
 <section id="what">
   <div class="wrap">
@@ -539,8 +582,14 @@
           <fieldset>
             <legend>Options</legend>
             <p>
+              <label for="bookTitle">Title (optional)</label><br>
+              <input type="text" id="bookTitle" maxlength="42" placeholder="Scripture Markings">
+              <span class="field-note">Leave blank for “Scripture Markings”. Short titles set best — much past 30 characters and it wraps.</span>
+            </p>
+            <p>
               <label for="personName">Name on the title page (optional)</label><br>
-              <input type="text" id="personName" placeholder="e.g. Jane Smith">
+              <input type="text" id="personName" maxlength="60" placeholder="e.g. Jane Smith">
+              <span class="field-note">Printed beneath the title. Leave blank to omit it.</span>
             </p>
             <p>
               <label><input type="radio" name="margins" value="fixed" checked> Reading on a screen</label><br>
@@ -593,10 +642,10 @@
     <div class="prose">
       <h2>Made for one family, shared for anyone's.</h2>
       <p>
-        Their Testament began as a way to preserve one person's lifetime of
-        scripture study — thousands of highlights and handwritten-feeling notes that
-        lived only inside an app. Turned into a book, they became something you could
-        hand to a grandchild.
+        Their Testament began with one person's scriptures — decades of
+        highlights and notes that existed nowhere but inside an app, and that
+        nobody in the family had ever seen. Setting them as a book was a way of
+        reading them properly for the first time.
       </p>
       <p>
         It's offered here in case your family has the same thing worth keeping.
@@ -612,6 +661,17 @@
     <h2>Good things to ask.</h2>
     <div class="faq">
       <details>
+        <summary>Whose annotations can I turn into a book?</summary>
+        <p>
+          The export reads the Gospel Library account you are signed in to, so
+          the straightforward answer is: your own. If you want a book of
+          someone else's study, the way to do it is together — sit down with
+          them, signed in as themselves, and make it from their account. That
+          is also the better version, because they can tell you what belongs in
+          it.
+        </p>
+      </details>
+      <details>
         <summary>Is it really free?</summary>
         <p>Yes. There's nothing to buy and no account. The tools are open source. If
            you print and bind the finished book, that's the only cost, and it's paid
@@ -625,9 +685,13 @@
       </details>
       <details>
         <summary>Does it work on an iPad?</summary>
-        <p>The export works on a computer or an iPad. Installing the bookmark is a
-           little more fiddly on an iPad — you bookmark any page, then edit the
-           bookmark and paste in the address. A desktop browser is the smooth path.</p>
+        <p>
+          Use a desktop or laptop computer. The export relies on a bookmarklet,
+          and installing one on an iPad means bookmarking any page, then editing
+          that bookmark and pasting in an address — fiddly enough that it isn't
+          worth fighting. The finished book, on the other hand, is made for a
+          tablet: it's a PDF, and it reads beautifully on an iPad.
+        </p>
       </details>
       <details>
         <summary>What if there are thousands of highlights?</summary>
@@ -649,6 +713,7 @@
   <div class="wrap">
     <p>
       <a href="#what">What it keeps</a> &nbsp;·&nbsp;
+      <a href="preserve.html">Keeping them safe</a> &nbsp;·&nbsp;
       <a href="#how">How it works</a> &nbsp;·&nbsp;
       <a href="#privacy">Privacy</a> &nbsp;·&nbsp;
       <a href="https://github.com/jlconlin/their-testament" rel="noopener">Source code</a>
@@ -858,6 +923,9 @@ goButton.addEventListener("click", async () => {
     });
     const personName = document.getElementById("personName").value.trim() || null;
     const margins = document.querySelector('input[name="margins"]:checked').value;
+    // both optional: blank title falls back to the default in assembleBook,
+    // blank name omits the line under the title entirely
+    const title = document.getElementById("bookTitle").value.trim() || undefined;
 
     // Work out every document this export needs, then fetch them a few at a
     // time. Assembly below is unchanged and still asks one at a time -- it
@@ -870,7 +938,7 @@ goButton.addEventListener("click", async () => {
 
     log("assembling book…");
     stage = "assembling";
-    const { book, diags, uncategorised } = await assembleBook(envelope.annotations, content, { personName, margins });
+    const { book, diags, uncategorised } = await assembleBook(envelope.annotations, content, { title, personName, margins });
     progress.remove();
     log(`assembled ${book.parts.length} part(s), ${content.fetched} fetched / ${content.cacheHits} cached`);
     if (uncategorised.length) log(`${uncategorised.length} annotation(s) could not be categorised`);

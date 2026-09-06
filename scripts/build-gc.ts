@@ -45,7 +45,7 @@ async function main() {
   const book: DocBook = {
     generatedAt: new Date().toISOString(),
     personName: null,
-    title: "The Marked Scriptures — General Conference, April 2015",
+    title: "Scripture Markings — General Conference, April 2015",
     margins: (process.env.MARGINS as "fixed" | "mirrored") ?? "fixed",
     parts: [part],
     tagIndex: mergeTagIndex(tagEntries),

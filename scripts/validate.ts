@@ -142,7 +142,7 @@ async function main() {
   const book: DocBook = {
     generatedAt: new Date().toISOString(),
     personName: null,
-    title: "The Marked Scriptures",
+    title: "Scripture Markings",
     margins: "fixed",
     parts,
     tagIndex: mergeTagIndex(allTags),

@@ -262,11 +262,45 @@
 #let title-page() = plain-page({
   v(2.4in)
   align(center, {
-    text(font: sans, size: 22pt, weight: "regular", tracking: 0.02em)[#doc.at("title", default: "The Marked Scriptures")]
+    text(font: sans, size: 22pt, weight: "regular", tracking: 0.02em)[#doc.at("title", default: "Scripture Markings")]
     if doc.personName != none { v(0.55em); text(font: sans, size: 13pt, fill: notegray)[#doc.personName] }
   })
   v(1fr)
   align(center, text(size: 9pt, fill: headcol, number-type: "lining")[#doc.generatedAt.slice(0, 10)])
+})
+
+// Copyright page -- the verso of the title leaf, where a reader expects to
+// find it. The scripture and conference text in this book is not ours: it is
+// reproduced under churchofjesuschrist.org's terms of use, which permit
+// downloading and printing "for your own personal, noncommercial use" and
+// require that proprietary notices not be removed. Hence this page, and hence
+// the "not for sale" line -- a book that is sold or redistributed is outside
+// the permission this one relies on.
+#let copyright-page() = plain-page({
+  v(1fr)
+  set par(justify: false, leading: 0.62em, spacing: 0.75em)
+  set text(size: 8pt, fill: notegray)
+  block(width: 100%, {
+    [Scripture passages and general conference excerpts reproduced in this
+     volume are the copyrighted property of Intellectual Reserve, Inc., and of
+     The Church of Jesus Christ of Latter-day Saints. They appear here under
+     the terms of use of #link("https://www.churchofjesuschrist.org")[churchofjesuschrist.org],
+     which permit material from that site to be downloaded and printed for
+     personal, noncommercial use.]
+    parbreak()
+    [Only passages that the reader of these scriptures personally marked are
+     included; the scriptures are not reproduced in full.]
+    parbreak()
+    [The notes, highlights, and tags are the work of the person named on the
+     title page and remain their own.]
+    parbreak()
+    [This is a personal keepsake, not for sale or redistribution. It is not an
+     official publication of The Church of Jesus Christ of Latter-day Saints,
+     and is not affiliated with or endorsed by the Church.]
+    parbreak()
+    [Made with Their Testament · #link("https://theirtestament.org")[theirtestament.org] ·
+     typeset with Typst · #doc.generatedAt.slice(0, 10)]
+  })
 })
 
 #let stats-page() = plain-page({
@@ -522,6 +556,7 @@
 
 #if mode == "full" or mode == "front" {
   title-page()
+  copyright-page()
   stats-page()
   parts-page()
 }

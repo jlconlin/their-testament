@@ -108,7 +108,7 @@ export async function assembleBook(annotations, content, opts = {}) {
     const book = {
         generatedAt: new Date().toISOString(),
         personName: opts.personName ?? null,
-        title: opts.title ?? "The Marked Scriptures",
+        title: opts.title?.trim() || "Scripture Markings",
         margins: opts.margins ?? "fixed",
         parts,
         tagIndex: mergeTagIndex(allTags),

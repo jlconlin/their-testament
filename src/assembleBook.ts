@@ -123,7 +123,7 @@ export async function assembleBook(
   const book: DocBook = {
     generatedAt: new Date().toISOString(),
     personName: opts.personName ?? null,
-    title: opts.title ?? "The Marked Scriptures",
+    title: opts.title?.trim() || "Scripture Markings",
     margins: opts.margins ?? "fixed",
     parts,
     tagIndex: mergeTagIndex(allTags),
