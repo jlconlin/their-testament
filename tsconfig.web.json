@@ -26,6 +26,8 @@
     "src/assembleGC.ts",
     "src/notebooks.ts",
     "src/assembleBook.ts",
+    "src/contentFetch.ts",
+    "src/contentPlan.ts",
     "src/browserContent.ts",
     "src/browserRender.ts",
     "src/mergePdf.ts"

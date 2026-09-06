@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ContentPage, ContentSource } from "./types.ts";
+import { RateGate, fetchContentJson, pool } from "./contentFetch.ts";
 
 const BASE = "https://www.churchofjesuschrist.org/study/api/v3/language-pages/type/content";
 
@@ -18,10 +19,12 @@ export class ContentClient implements ContentSource {
   constructor(
     private cacheDir: string,
     private lang = "eng",
-    private minIntervalMs = 400, // be gentle with an unofficial endpoint
-  ) {}
+    minIntervalMs = 400, // be gentle with an unofficial endpoint
+  ) {
+    this.gate = new RateGate(minIntervalMs);
+  }
 
-  private last = 0;
+  private gate: RateGate;
 
   private cachePath(docUri: string): string {
     const slug = docUri.replace(/^\//, "").replace(/[^a-z0-9]+/gi, "-");
@@ -40,19 +43,26 @@ export class ContentClient implements ContentSource {
       return JSON.parse(await readFile(path, "utf8")) as ContentPage;
     }
 
-    const wait = this.minIntervalMs - (Date.now() - this.last);
-    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
-    this.last = Date.now();
+    await this.gate.wait();
 
     const url = `${BASE}?lang=${this.lang}&uri=${encodeURIComponent(docUri)}`;
-    const res = await fetch(url, { headers: { Accept: "application/json" } });
-    if (!res.ok) throw new Error(`content ${res.status} for ${docUri}`);
-    const data = (await res.json()) as ContentPage;
+    let data: ContentPage;
+    try {
+      data = await fetchContentJson<ContentPage>(url);
+    } catch (e) {
+      throw new Error(`${(e as Error).message} for ${docUri}`);
+    }
 
     await mkdir(this.cacheDir, { recursive: true });
     await writeFile(path, JSON.stringify(data));
     this.fetched++;
     return data;
+  }
+
+  /** Warm the cache concurrently; see browserContent.ts's prefetch for why. */
+  async prefetch(uris: string[], concurrency = 5): Promise<void> {
+    const missing = uris.filter((u) => !existsSync(this.cachePath(u)));
+    await pool(missing, concurrency, async (uri) => { await this.tryGet(uri); });
   }
 
   /** Like get(), but records the failure and returns null instead of throwing. */

@@ -1,3 +1,4 @@
+import { RateGate, fetchContentJson, pool } from "./contentFetch.js";
 const BASE = "https://www.churchofjesuschrist.org/study/api/v3/language-pages/type/content";
 const DB_NAME = "their-testament-content";
 const STORE = "pages";
@@ -23,17 +24,30 @@ function idbPut(db, key, value) {
         req.onerror = () => reject(req.error);
     });
 }
+/**
+ * How many documents are in flight during the prefetch pass, and how far apart
+ * their requests start.
+ *
+ * Deliberately modest. This runs from the visitor's own IP against someone
+ * else's service, so getting *them* rate-limited or blocked is a worse outcome
+ * than being slow. 5 in flight at 120ms spacing is ~8 requests/second: several
+ * times faster than the old 400ms serial gate (2.5/s) while still visibly a
+ * polite client rather than a scraper.
+ */
+const PREFETCH_CONCURRENCY = 5;
+const PREFETCH_INTERVAL_MS = 120;
 export class ContentClientBrowser {
     lang;
-    minIntervalMs;
     onProgress;
-    constructor(lang = "eng", minIntervalMs = 400, onProgress) {
+    constructor(lang = "eng", minIntervalMs = PREFETCH_INTERVAL_MS, onProgress) {
         this.lang = lang;
-        this.minIntervalMs = minIntervalMs;
         this.onProgress = onProgress;
+        this.gate = new RateGate(minIntervalMs);
     }
+    gate;
     dbPromise = openDb();
-    last = 0;
+    total;
+    waitingMs = 0;
     key(docUri) {
         return `${docUri}::${this.lang}`;
     }
@@ -41,7 +55,13 @@ export class ContentClientBrowser {
     fetched = 0;
     cacheHits = 0;
     reportProgress() {
-        this.onProgress?.({ fetched: this.fetched, cacheHits: this.cacheHits, failed: this.failures.size });
+        this.onProgress?.({
+            fetched: this.fetched,
+            cacheHits: this.cacheHits,
+            failed: this.failures.size,
+            total: this.total,
+            waitingMs: this.waitingMs || undefined,
+        });
     }
     async get(docUri) {
         const db = await this.dbPromise;
@@ -52,19 +72,52 @@ export class ContentClientBrowser {
             this.reportProgress();
             return cached;
         }
-        const wait = this.minIntervalMs - (Date.now() - this.last);
-        if (wait > 0)
-            await new Promise((r) => setTimeout(r, wait));
-        this.last = Date.now();
+        await this.gate.wait();
         const url = `${BASE}?lang=${this.lang}&uri=${encodeURIComponent(docUri)}`;
-        const res = await fetch(url, { headers: { Accept: "application/json" } });
-        if (!res.ok)
-            throw new Error(`content ${res.status} for ${docUri}`);
-        const data = (await res.json());
+        let data;
+        try {
+            data = await fetchContentJson(url, {
+                onRetry: ({ delayMs }) => {
+                    // surface the pause rather than letting the bar look frozen
+                    this.waitingMs = Math.round(delayMs);
+                    this.reportProgress();
+                },
+            });
+        }
+        catch (e) {
+            throw new Error(`${e.message} for ${docUri}`);
+        }
+        finally {
+            this.waitingMs = 0;
+        }
         await idbPut(db, key, data);
         this.fetched++;
         this.reportProgress();
         return data;
+    }
+    /**
+     * Warm the cache for every document a run will need, several at a time.
+     *
+     * Assembly stays exactly as it was -- serial, one document at a time -- but
+     * finds everything already in IndexedDB, so the ~1,560 network round-trips
+     * that dominated a first run collapse into one concurrent pass. Failures are
+     * not thrown here: a document that cannot be fetched is left out, and
+     * assembly will ask for it again and record its own diagnostic, which is
+     * what feeds the completeness report.
+     */
+    async prefetch(uris, concurrency = PREFETCH_CONCURRENCY) {
+        const db = await this.dbPromise;
+        const missing = [];
+        for (const uri of uris) {
+            // Don't count these as cache hits: assembly is about to ask for every
+            // one of them again, and that pass is what the hit counter reports.
+            if (!(await idbGet(db, this.key(uri))))
+                missing.push(uri);
+        }
+        this.total = missing.length;
+        this.reportProgress();
+        await pool(missing, concurrency, async (uri) => { await this.tryGet(uri); });
+        this.total = undefined;
     }
     async tryGet(docUri) {
         try {

@@ -34,8 +34,9 @@
 <h1>Their Testament — generator (dev scaffold)</h1>
 <p class="note">
   Not linked from the public site yet — M6 scaffolding only. A first run
-  fetches every marked chapter/talk from the Church's content API
-  (rate-limited), so it can take a while for a large export.
+  fetches every marked chapter and talk from the Church's content API, a few
+  at a time; for a large export that is a few minutes. Everything fetched is
+  cached in this browser, so a second run skips straight to compiling.
 </p>
 
 <p><input type="file" id="file" accept="application/json"></p>
@@ -65,6 +66,7 @@
 import { readEnvelope } from "./gen/envelope.js";
 import { ContentClientBrowser } from "./gen/browserContent.js";
 import { assembleBook } from "./gen/assembleBook.js";
+import { planContentUris } from "./gen/contentPlan.js";
 import { renderBookAuto } from "./gen/browserRender.js";
 import { summarizeDiags } from "./gen/diagSummary.js";
 
@@ -148,6 +150,13 @@ function friendlyError(stage, e) {
       body: `Make sure you're uploading the .json file the bookmarklet downloaded, not something else. ${REASSURE}`,
     };
   }
+  if (stage === "fetching") {
+    return {
+      title: "Couldn't reach churchofjesuschrist.org",
+      body: `Your book needs the text of the chapters and talks you marked, which is fetched from the Church's own site. ` +
+        `Check your connection and try again — anything already fetched is cached, so a second run picks up where this one stopped. ${REASSURE}`,
+    };
+  }
   if (stage === "assembling") {
     return {
       title: "Something went wrong turning your marks into pages",
@@ -199,15 +208,27 @@ goButton.addEventListener("click", async () => {
     const progressLine = document.createElement("div");
     progressLine.id = "progress";
     logEl.after(progressLine);
-    const content = new ContentClientBrowser("eng", 400, (p) => {
+    const content = new ContentClientBrowser("eng", undefined, (p) => {
+      const done = p.fetched + p.failed;
+      const pct = p.total ? ` (${Math.min(100, Math.round((done / p.total) * 100))}%)` : "";
       progressLine.textContent =
-        `fetching content… ${p.fetched} fetched · ${p.cacheHits} cached` +
-        (p.failed ? ` · ${p.failed} failed` : "");
+        (p.total ? `fetching ${done} of ${p.total}${pct}` : `reading ${p.cacheHits} from cache`) +
+        (p.failed ? ` · ${p.failed} unavailable` : "") +
+        (p.waitingMs ? ` · easing off for ${(p.waitingMs / 1000).toFixed(1)}s` : "");
     });
     const personName = document.getElementById("personName").value.trim() || null;
     const margins = document.querySelector('input[name="margins"]:checked').value;
 
-    log("assembling book (this fetches every marked chapter/talk — slow on a first run)…");
+    // Work out every document this export needs, then fetch them a few at a
+    // time. Assembly below is unchanged and still asks one at a time -- it
+    // just finds them already cached. This is the slowest stage of a first
+    // run by a wide margin, so it is the one worth parallelising.
+    stage = "fetching";
+    const plan = planContentUris(envelope.annotations);
+    log(`this export needs ${plan.length} document(s) from churchofjesuschrist.org`);
+    await content.prefetch(plan);
+
+    log("assembling book…");
     stage = "assembling";
     const { book, diags, uncategorised } = await assembleBook(envelope.annotations, content, { personName, margins });
     progressLine.remove();

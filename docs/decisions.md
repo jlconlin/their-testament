@@ -808,17 +808,9 @@ confirming both options actually reach the compiled PDF, not just the form.
 
 Parked deliberately so the compile work could land first. In priority order:
 
-1. **Content-fetch concurrency.** Now the longest stage by far — ~1,560
-   documents at a 400 ms serial gate is ~10 minutes, against a compile that
-   is now ~40 seconds. Plan: a prefetch pass that derives the document URIs
-   from the annotations and warms IndexedDB through a pool of 4–6, leaving
-   the existing serial assembly untouched (it becomes all cache hits).
-   **Prerequisite: retry/backoff on 429 + 5xx.** Today a non-OK response is
-   recorded as a failure and the content silently drops out of the book, so
-   raising concurrency without backoff would quietly degrade someone's
-   keepsake. Deliberately staying polite (4–6, not unbounded): this runs from
-   the visitor's own IP against someone else's service, and getting *them*
-   rate-limited is a worse failure than being slow.
+1. ~~**Content-fetch concurrency.**~~ **Done 2026-09-06** — see "Content
+   fetching" below. ~12 min → ~3.4 min measured, and the silent content-loss
+   bug it depended on is fixed.
 2. **The generator UI.** Fold `generate.html` into the main page — one page,
    not two. Change `onProgress` from a bare label to structured
    `{done, total, label}` so the progress bar is honest: the fetch stage
@@ -932,3 +924,46 @@ Three findings from doing it:
 **Also watch:** Marcellus's stroke contrast is exactly what makes it read like
 Optima, and the running heads are 7.5pt in a light gray (`headcol`). Fine on
 screen; if it prints weak, darken `headcol` rather than changing the face.
+
+
+### Content fetching: backoff, then concurrency (2026-09-06)
+
+After the compile work, fetching was ~94% of a first run: ~1,630 documents
+behind a 400 ms serial gate, roughly 12 minutes, against a compile of ~40
+seconds.
+
+**A correctness bug came first, and mattered more than the speed.** A non-OK
+response was recorded as a permanent failure and the document simply dropped
+out of the book — so one transient 503 in a twelve-minute run meant a keepsake
+quietly missing verses, with only a line in the completeness report to show
+for it. `src/contentFetch.ts` now retries 408/425/429/500/502/503/504 and
+network errors with exponential backoff and full jitter, honours `Retry-After`
+when the server sends it, and deliberately does **not** retry a 404 — that
+document really is gone, and retrying it would just be slow *and* wrong.
+
+**Concurrency then became safe to add.** `RateGate` spaces when requests
+*start* rather than serialising them; the old `last = Date.now()` check could
+not do this, because under concurrency every caller reads the same stale
+timestamp and they all go at once. Settled at **5 in flight, 120 ms apart**
+(~8 docs/sec) — several times the old 2.5/sec ceiling while still visibly a
+polite client. Not pushed harder on purpose: this runs from the visitor's own
+IP against someone else's service, and getting *them* rate-limited is a worse
+outcome than being slow.
+
+**Assembly was not restructured.** `planContentUris()` derives the whole
+document list from the annotations up front, `prefetch()` warms IndexedDB
+concurrently, and assembly runs exactly as before — one document at a time,
+now all cache hits. Derivation goes through `classify()`, the same function
+assembly uses, so the two cannot drift.
+
+Measured against the real export: assembly requests 1,630 documents, the plan
+produces 1,628, **zero wasted fetches**, and the 2 it misses are notebook
+"passage" entries pointing outside scripture and General Conference — they
+fall back to serial, which is why the plan does not need to be complete to be
+correct. Live against the real endpoint: 24 documents in 3.0s, 7.9 docs/sec,
+no failures. Projected full run **~3.4 min, from ~12**.
+
+The retry policy is unit-tested against a fake server (retries a 503, refuses
+to retry a 404, retries network errors, gives up when the budget is spent,
+honours Retry-After, gate spacing, pool concurrency cap, pool covers every
+item exactly once).
