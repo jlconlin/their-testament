@@ -177,6 +177,20 @@ function splitPart(part) {
     }
     return null;
 }
+/** Tracks done/total across a split run so callers get a fraction, not a guess. */
+class ProgressCounter {
+    report;
+    total;
+    constructor(report, total = 1) {
+        this.report = report;
+        this.total = total;
+    }
+    done = 0;
+    step(label) { this.report?.({ done: this.done, total: this.total, label }); }
+    finishOne() { this.done++; }
+    /** A bisected piece became two: the denominator has to grow with it. */
+    addPieces(n) { this.total += n; }
+}
 /**
  * Divide a Part into pieces small enough to compile, before trying any of
  * them. Discovering the limit by failure is expensive and gets more so as
@@ -193,27 +207,29 @@ function planPieces(part) {
     return [...planPieces(halves[0]), ...planPieces(halves[1])];
 }
 /** Compile one piece, halving and retrying if the plan still overshot. */
-async function compilePiece(ctx, part, out, continued) {
+async function compilePiece(ctx, part, out, continued, prog, label) {
+    prog.step(label);
     const book = { ...ctx.book, parts: [part], tagIndex: [], unplacedNotes: [] };
     const pdf = await runChunk({ book, mode: "part", continued }, ctx.mainTypst, ctx.fonts);
     if (pdf) {
         out.push(pdf);
+        prog.finishOne();
         return;
     }
     const halves = splitPart(part);
     if (!halves) {
         throw new Error(`"${part.title}" is too large for this browser to lay out, and can't be divided any further.`);
     }
-    ctx.onProgress?.(`${part.title} (dividing further)`);
-    await compilePiece(ctx, halves[0], out, continued);
-    await compilePiece(ctx, halves[1], out, true);
+    prog.addPieces(1); // one piece became two
+    await compilePiece(ctx, halves[0], out, continued, prog, `${part.title} (dividing further)`);
+    await compilePiece(ctx, halves[1], out, true, prog, `${part.title} (dividing further)`);
 }
 /** Compile a whole Part, as however many pieces it needs. */
-async function compilePart(ctx, part, out) {
+async function compilePart(ctx, part, out, prog) {
     const pieces = planPieces(part);
     for (const [i, piece] of pieces.entries()) {
-        ctx.onProgress?.(pieces.length > 1 ? `${part.title} (${i + 1} of ${pieces.length})` : part.title);
-        await compilePiece(ctx, piece, out, i > 0);
+        const label = pieces.length > 1 ? `${part.title} (${i + 1} of ${pieces.length})` : part.title;
+        await compilePiece(ctx, piece, out, i > 0, prog, label);
     }
 }
 /**
@@ -230,12 +246,19 @@ async function compilePart(ctx, part, out) {
 export async function renderBookAuto(opts) {
     const totalUnits = opts.book.parts.reduce((n, p) => n + countUnits(p), 0);
     if (totalUnits <= PIECE_UNIT_CAP) {
-        opts.onProgress?.("the whole book, in one pass");
+        opts.onProgress?.({ done: 0, total: 1, label: "the whole book, in one pass" });
         const onePass = await runChunk({ book: opts.book, mode: "full" }, opts.mainTypst, opts.fonts);
-        if (onePass)
+        if (onePass) {
+            opts.onProgress?.({ done: 1, total: 1, label: "done" });
             return { pdf: onePass, split: false };
+        }
     }
-    opts.onProgress?.("too large for one pass — compiling it in pieces instead");
+    // Count the pieces before compiling any, so the caller can show a fraction
+    // from the first tick rather than a spinner that resolves into a number.
+    const piecesPerPart = opts.book.parts.map((p) => planPieces(p).length);
+    const partPieces = piecesPerPart.reduce((a, b) => a + b, 0);
+    // + front matter, back matter, the front-matter relink, and the merge
+    const prog = new ProgressCounter(opts.onProgress, partPieces + 4);
     const need = async (spec, what) => {
         const pdf = await runChunk(spec, opts.mainTypst, opts.fonts);
         if (!pdf)
@@ -244,12 +267,13 @@ export async function renderBookAuto(opts) {
     };
     // Front matter first, only to learn how many pages it occupies -- every
     // other piece's absolute page numbers are measured from the end of it.
-    opts.onProgress?.("front matter");
+    prog.step("front matter");
     const frontPlain = await need({ book: opts.book, mode: "front" }, "front matter");
     const frontPages = await pageCount(frontPlain);
+    prog.finishOne();
     const partPdfs = [];
     for (const part of opts.book.parts) {
-        await compilePart(opts, part, partPdfs);
+        await compilePart(opts, part, partPdfs, prog);
     }
     // Each piece reported where its own anchors landed; shift those into the
     // page space of the finished book so references can name a real page.
@@ -263,8 +287,9 @@ export async function renderBookAuto(opts) {
         offset += await pageCount(pdf);
     }
     // Back matter can now print true book page numbers in the tag index.
-    opts.onProgress?.("tag index and closing notes");
+    prog.step("tag index and closing notes");
     const back = await need({ book: { ...opts.book, parts: [] }, mode: "back", pagemap }, "tag index");
+    prog.finishOne();
     for (const [key, local] of await readAnchors(back)) {
         if (!(key in pagemap))
             pagemap[key] = offset + local + 1;
@@ -273,11 +298,15 @@ export async function renderBookAuto(opts) {
     // Parts links too. Adding links doesn't reflow anything, but if the page
     // count moved for any reason, keep the version whose length the offsets were
     // computed from -- correct page numbers matter more than clickable ones.
+    prog.step("the list of Parts");
     let front = frontPlain;
     const frontLinked = await runChunk({ book: opts.book, mode: "front", pagemap }, opts.mainTypst, opts.fonts);
     if (frontLinked && (await pageCount(frontLinked)) === frontPages)
         front = frontLinked;
-    opts.onProgress?.("stitching the pieces together");
+    prog.finishOne();
+    prog.step("stitching the pieces together");
     const pdf = await mergePdfs([front, ...partPdfs, back]);
+    prog.finishOne();
+    prog.step("done");
     return { pdf, split: true };
 }

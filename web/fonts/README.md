@@ -19,7 +19,7 @@ from the `.ttf` with `fontTools` (`TTFont(src); f.flavor = "woff2"`).
 ## If you add or change a family
 
 1. Add **both** formats here, plus its OFL licence file.
-2. Add the `.ttf` to the font list in `web/generate.html` — the browser only
+2. Add the `.ttf` to the font list in `web/index.html` — the browser only
    gets the files that list names, and a missing family falls back silently to
    Typst's default face. The CLI won't catch this for you: it reads the whole
    directory.

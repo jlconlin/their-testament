@@ -42,7 +42,7 @@ the `--book-*` tokens, each named for the template variable it mirrors. Its job
 is to show what the tool actually produces. **Change type or colour in
 `book.typ` and you must change `.leaf` too.**
 
-**5. The generator's font list must match the template.** `web/generate.html`
+**5. The generator's font list must match the template.** `web/index.html`
 names the `.ttf` files handed to the WASM compiler. The CLI reads a whole font
 directory and forgives a mismatch; the browser only gets what that list names,
 and an unlisted family falls back silently to Typst's default face. Adding a
@@ -69,14 +69,11 @@ change — see `typeset/palette.md`.
 - `templates/book.typ` — the book (`sans` = Marcellus, body = EB Garamond)
 - `web/index.html` — the site, plus the `--book-*` mirror for the sample spread
 - `web/404.html`
-- `web/generate.html` — **the known gap**
 
-## Known gap
+## Kept honest
 
-`generate.html` is still styled as a bare development page: system sans,
-default sizes, none of the project's type or colour. It is the page people use
-to actually make their book, so it is also the least finished thing they see.
-Consolidating it into the main page is already on the next-up list in
-`decisions.md`, which is why it hasn't been restyled in place — doing both
-would mean doing the work twice. Until then, this document describes three of
-the four pages.
+The generator was folded into `index.html` on 2026-09-06, so there is no
+longer a page styled outside this system. It had been a bare development page
+— system sans, default sizes, none of the project's type or colour — and was
+also the page people actually used to make their book, i.e. the least finished
+thing they saw.

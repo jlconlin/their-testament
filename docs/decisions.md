@@ -967,3 +967,24 @@ The retry policy is unit-tested against a fake server (retries a 503, refuses
 to retry a 404, retries network errors, gives up when the budget is spent,
 honours Retry-After, gate spacing, pool concurrency cap, pool covers every
 item exactly once).
+
+
+### The generator goes on the main page, before permissions land (2026-09-06)
+
+The stated principle was "Copyright + API-terms = a formal public-release
+gate," and request #L26-64433 is still pending with the Church Intellectual
+Property Office (submitted 2026-09-04, response expected ~2026-10-24). Folding
+the generator into `index.html` makes it publicly usable and therefore crosses
+that gate ahead of a decision.
+
+**Decided by Jeremy, knowingly:** the use is believed to be permitted under
+the site's **terms of use** (not a fair-use claim — that was an early
+mischaracterisation, corrected here), and the tool goes live until such time as
+the Church asks for it to come down.
+Recorded here so the gate reads as *consciously overridden with a reason*
+rather than forgotten — the earlier principle stands as written, this is a
+judged exception to it, and the permissions request remains outstanding and
+should still be answered on its merits when it returns.
+
+Nothing about the request changes: it described a web tool distributing
+user-marked excerpts, which is exactly what is now live.
