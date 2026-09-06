@@ -804,7 +804,7 @@ Verified live: set a name and mirrored margins, generated, and the output
 byte count changed (18,055 vs. 17,780 bytes for the same annotations)
 confirming both options actually reach the compiled PDF, not just the form.
 
-## Next up — agreed, not yet started (as of 2026-09-05)
+## Next up — agreed, not yet started (updated 2026-09-06)
 
 Parked deliberately so the compile work could land first. In priority order:
 
@@ -824,9 +824,11 @@ Parked deliberately so the compile work could land first. In priority order:
    `{done, total, label}` so the progress bar is honest: the fetch stage
    already tracks `{fetched, cacheHits, failed}` against a known total, and
    the compile stage now knows its piece count up front.
-3. **Fraunces rendering.** The chosen font "looks quite awful" in the actual
-   PDF versus the specimen. Deferred mid-session to avoid a detour; still
-   unexamined.
+3. ~~**Fraunces rendering.**~~ **Done 2026-09-06** — and the answer was not a
+   rendering fix. Fraunces is a *serif*; the layout was drawn around Optima, a
+   flared humanist *sans*, so the sans/serif contrast against the body had been
+   silently lost. Replaced with Marcellus, site and book both. See "Heading
+   font revised" below and `docs/typography.md`.
 4. **M8** — analytics + a spam-resistant contact route. Note the dependency:
    without any usage measurement we are guessing about where visitors give up
    (see the bookmarklet-onboarding question).
