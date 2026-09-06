@@ -150,6 +150,9 @@ Adopted principles:
 | **M6** | Browser generator | Upload → options → generate → completeness report → download, all in-browser |
 | **M7** | Public-release readiness | Copyright/terms review, privacy, docs, compat, naming, versioning, support |
 | **M8** | Optional expansion | Browser extension, Android export, CLI, more content types, preservation archive |
+| **M9** | Operating the live site | Usage is visible; people can reach Jeremy without an address exposed to spam |
+| **M10** | Onboarding the non-technical visitor | Someone non-technical completes an export unaided, or with one clearly-scoped hand-off |
+| **M11** | Scale verification in production | A full real export completes in a real browser on the live site — fetch and split compile both exercised at full size |
 
 Settled, not to be reopened without a concrete problem: Typst; TypeScript;
 local-first; canonical organization; original highlighting; margin notes; tag
@@ -407,7 +410,7 @@ personal-only. Left as-is; the public/available-to-others framing is already
 stated in the free-text answers (Content Requests and Product/Project
 description).
 
-## M8 — Site analytics + protected contact form (planned, not started)
+## M9 — Site analytics + protected contact form (planned, not started)
 
 Two additions to the live site, decided but deferred:
 
@@ -804,48 +807,63 @@ Verified live: set a name and mirrored margins, generated, and the output
 byte count changed (18,055 vs. 17,780 bytes for the same annotations)
 confirming both options actually reach the compiled PDF, not just the form.
 
-## Next up — agreed, not yet started (updated 2026-09-06)
+## Where things stand (2026-09-06)
 
-Parked deliberately so the compile work could land first. In priority order:
+Work that came up mid-flight has been folded into numbered milestones rather
+than accumulating as a to-do list, so each has an exit criterion that says
+when it is actually finished.
 
-1. ~~**Content-fetch concurrency.**~~ **Done 2026-09-06** — see "Content
-   fetching" below. ~12 min → ~3.4 min measured, and the silent content-loss
-   bug it depended on is fixed.
-2. **The generator UI.** Fold `generate.html` into the main page — one page,
-   not two. Change `onProgress` from a bare label to structured
-   `{done, total, label}` so the progress bar is honest: the fetch stage
-   already tracks `{fetched, cacheHits, failed}` against a known total, and
-   the compile stage now knows its piece count up front.
-3. ~~**Fraunces rendering.**~~ **Done 2026-09-06** — and the answer was not a
-   rendering fix. Fraunces is a *serif*; the layout was drawn around Optima, a
-   flared humanist *sans*, so the sans/serif contrast against the body had been
-   silently lost. Replaced with Marcellus, site and book both. See "Heading
-   font revised" below and `docs/typography.md`.
-4. **M8** — analytics + a spam-resistant contact route. Note the dependency:
-   without any usage measurement we are guessing about where visitors give up
-   (see the bookmarklet-onboarding question).
-5. **A short walkthrough video for the export step** (added 2026-09-06). The
-   install is the clunkiest part of the product and the part most likely to
-   lose a non-technical visitor; for that audience a ~40-second screen
-   recording is worth more than any amount of prose. Desktop only now that
-   decision 29 is amended, which is what makes it cheap — the iPad path
-   (add a bookmark, then edit its URL to paste `javascript:`) was the one no
-   video could make look easy. Pairs with browser-detected instructions
-   (⌘⇧B / Ctrl+Shift+B to reveal the bookmarks bar) and a printable
-   one-page sheet, since much of the audience is being helped through this
-   by someone else.
+**Done today, and why they are closed:**
 
-Not on this list because it sits with Jeremy, not the code: whether the
-annotations can be obtained some other way (an official bulk export, if one
-exists) would change the acquisition story more than any amount of onboarding
-polish, and the bookmarklet would become the fallback rather than the front
-door.
+- **Content-fetch concurrency** — ~12 min → ~3.4 min measured, and the silent
+  content-loss bug it depended on is fixed. See "Content fetching" below.
+- **The generator UI** — folded into `index.html`; one page, not two, with
+  structured progress driving a real bar. Closes the buildable part of **M6**.
+- **Fraunces rendering** — the answer was not a rendering fix. Fraunces is a
+  *serif*; the layout was drawn around Optima, a flared humanist *sans*, so the
+  sans/serif contrast against the body had been silently lost. Replaced with
+  Marcellus, site and book both. See "Heading font revised" below and
+  `docs/typography.md`.
 
-Tuning note: the piece-size numbers above were measured in Node, with a
+**Milestone status:**
+
+- **M6 — Browser generator: built and live**, pending **M11**. Upload →
+  options → generate → completeness report → download all work in-browser,
+  and the generator now ships on the landing page.
+- **M7 — Public-release readiness: open.** Permissions request #L26-64433 is
+  still outstanding (expected ~2026-10-24). The release gate was consciously
+  overridden to put the generator live — see "The generator goes on the main
+  page" below — so this milestone is *not* satisfied, only deliberately
+  bypassed for now, and the request should still be answered on its merits.
+- **M9 — Operating the live site: not started.** Analytics and a
+  spam-resistant contact route. Note the dependency: without any usage
+  measurement, M10 is guesswork — we would be redesigning onboarding on a
+  hunch about where people give up.
+- **M10 — Onboarding: not started.** A ~40-second walkthrough video of the
+  export step, browser-detected install instructions (⌘⇧B / Ctrl+Shift+B to
+  reveal the bookmarks bar), and a printable one-page sheet, since much of the
+  audience is being helped through this by someone else. Desktop only now that
+  decision 29 is amended, which is what makes it cheap: the iPad path (add a
+  bookmark, then edit its URL to paste `javascript:`) was the one no video
+  could have made look easy.
+  Also in scope, and sitting with Jeremy rather than the code: whether the
+  annotations can be obtained some other way. An official bulk export, if one
+  exists, would reshape acquisition more than any amount of onboarding polish,
+  and would make the bookmarklet the fallback rather than the front door.
+- **M11 — Scale verification: not started.** Two things have never been
+  exercised at full size in a real browser on the live site: a complete
+  ~1,630-document fetch (24 were tested live, the rest extrapolated — real
+  runs may hit 429s, which is what the backoff exists for), and a full split
+  compile with every piece plus the merge (verified in Node with a process per
+  piece standing in for terminated Workers, and the Worker path verified
+  separately on a small book, but never both together at corpus size).
+  Jeremy's own export is the natural test for both.
+
+**Tuning note for M11:** the piece-size numbers were measured in Node, with a
 process per piece standing in for a terminated Worker. Chrome gives wasm a
-smaller stack, so `PIECE_UNIT_CAP` may want lowering once a large book has
-been run through a real browser. A piece that still overshoots is caught by
-bisection, so the failure mode is a slower run, not a broken one.
+smaller stack, so `PIECE_UNIT_CAP` may want lowering once a large book has run
+through a real browser. A piece that still overshoots is caught by bisection,
+so the failure mode is a slower run, not a broken one.
 
 ### Heading font revised: Marcellus, not Fraunces (2026-09-06)
 
