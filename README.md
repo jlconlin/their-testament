@@ -46,7 +46,9 @@ npx tsx scripts/build-job.ts                                # build one book (Jo
 
 Needs [Typst](https://github.com/typst/typst) on PATH (`brew install typst`).
 Fonts (Marcellus + EB Garamond) are bundled in `web/fonts/` — no install
-step; see `docs/decisions.md` ("Font licensing") for how that was chosen.
+step. **What type is used where, and the rules for it, are in
+[`docs/typography.md`](docs/typography.md)**; how it was chosen is in
+`docs/decisions.md`.
 
 ## The website
 

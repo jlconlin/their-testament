@@ -64,6 +64,7 @@
        It is kept separate on purpose: the spread must follow the *book*, so if
        the site's display face ever changes again the sample stays truthful. */
     --book-disp:  "Marcellus", Georgia, serif;   /* book.typ: sans */
+    --book-ink:   #1a1712;                       /* book.typ: ink     */
     --book-vnum:  #8f2704;                       /* book.typ: vnumcol */
     --book-tag:   #8a7f6f;                       /* book.typ: tagcol  */
     --book-note:  #544f49;                       /* book.typ: notegray */
@@ -85,6 +86,7 @@
 
       /* The book's colours are drawn for ink on paper; on a dark ground they
          go muddy, so lift them to the same relationships against the dark. */
+      --book-ink:  #ede4d1;
       --book-vnum: #d98b62;
       --book-tag:  #b3a894;
       --book-note: #c4b9a6;
@@ -154,6 +156,7 @@
   /* ---- the sample leaf --------------------------------------- */
   .leaf-stage { display: flex; justify-content: center; perspective: 1400px; }
   .leaf {
+    color: var(--book-ink);
     background: var(--paper-2); border: 1px solid var(--rule); border-radius: 3px;
     box-shadow: var(--shadow); padding: 1.6rem 1.5rem 1.9rem;
     max-width: 26rem; width: 100%; margin: 0;
@@ -189,7 +192,7 @@
     display: inline-block; padding: .12em .4em; border-radius: 2px; color: var(--book-tag); }
   .leaf .rh.y { background: var(--mk-yellow); color: #6b5410; }
   .leaf .rh.b {
-    background: none; border-radius: 0; padding: .12em .05em .04em; color: var(--ink);
+    background: none; border-radius: 0; padding: .12em .05em .04em; color: var(--book-ink);
     box-shadow: inset 0 -.14em 0 var(--mk-blue);
   }
   /* book.typ: a small filled square, then the tags in small caps */

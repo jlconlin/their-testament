@@ -59,7 +59,7 @@
 // Marcellus: a flared, glyphic Roman -- the open-licensed face closest to
 // Optima, which this design was originally drawn around. It is deliberately a
 // *sans* against the serif body: that contrast is the point, and it was lost
-// while Fraunces (a serif) held this slot.
+// while Fraunces (a serif) held this slot. See docs/typography.md.
 //
 // It ships exactly one face -- no bold, no italic -- and Typst substitutes
 // Regular silently, with no warning and no synthesised slant. That costs
