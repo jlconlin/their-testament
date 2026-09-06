@@ -15,7 +15,7 @@
 /** Statuses worth trying again. 404 is not one -- that document really is gone. */
 const RETRYABLE = new Set([408, 425, 429, 500, 502, 503, 504]);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-/** Honour Retry-After, whether it is given in seconds or as an HTTP date. */
+/** Honor Retry-After, whether it is given in seconds or as an HTTP date. */
 function retryAfterMs(res) {
     const raw = res.headers?.get?.("Retry-After");
     if (!raw)

@@ -19,7 +19,7 @@ export type DiagCategory =
   | "whole-unit-fallback" // offsets out of range → highlighted whole unit
   | "empty-span"          // offsets produced a zero-length span → whole unit
   | "pid-no-match"        // highlight's paragraph id / uri matched no parsed unit
-  | "clear"              // clear colour — intentionally no visual mark
+  | "clear"              // clear color — intentionally no visual mark
   | "note-no-anchor"     // annotation has a note/tags but no highlight to anchor it
   | "note-parse-empty";  // note had content but parsed to nothing
 

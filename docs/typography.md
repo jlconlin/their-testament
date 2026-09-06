@@ -2,7 +2,7 @@
 
 The canonical statement of what type this project uses and where. Anything new
 — a page, a template, an email, a diagram — follows this. Font *files*,
-formats and licences are catalogued in [`web/fonts/README.md`](../web/fonts/README.md);
+formats and licenses are cataloged in [`web/fonts/README.md`](../web/fonts/README.md);
 the history of how these were chosen is in [`decisions.md`](decisions.md).
 
 ## Three faces, three jobs
@@ -23,7 +23,7 @@ below.
 Neither Typst nor a browser synthesises the missing ones — both silently fall
 back to Regular, with no warning and no faux slant. A `font-weight: 600` on a
 heading does nothing; it doesn't fail, it just quietly has no effect. Where
-emphasis is needed, get it from size, tracking, colour or case.
+emphasis is needed, get it from size, tracking, color or case.
 
 **2. Real bold and italic come from EB Garamond.** It has genuine weights
 (400–800) and a real italic file. This is also where a person's own notes
@@ -37,9 +37,9 @@ on macOS, Segoe UI on Windows and Roboto on Android, and matches the printed
 page on none of them. (That bug shipped once; see decisions.md.)
 
 **4. The sample spread mirrors the book, not the site.** Everything inside
-`.leaf` in `index.html` follows `templates/book.typ` — including colour, via
+`.leaf` in `index.html` follows `templates/book.typ` — including color, via
 the `--book-*` tokens, each named for the template variable it mirrors. Its job
-is to show what the tool actually produces. **Change type or colour in
+is to show what the tool actually produces. **Change type or color in
 `book.typ` and you must change `.leaf` too.**
 
 **5. The generator's font list must match the template.** `web/index.html`
@@ -61,7 +61,7 @@ step.
 | `vnumcol` | `--book-vnum` | `#8f2704` | verse and paragraph numbers |
 | `headcol` | `--book-head` | `#8a8378` | running heads |
 
-Highlight colours are the real Gospel Library palette and are not ours to
+Highlight colors are the real Gospel Library palette and are not ours to
 change — see `typeset/palette.md`.
 
 ## Where this is implemented
@@ -74,6 +74,6 @@ change — see `typeset/palette.md`.
 
 The generator was folded into `index.html` on 2026-09-06, so there is no
 longer a page styled outside this system. It had been a bare development page
-— system sans, default sizes, none of the project's type or colour — and was
+— system sans, default sizes, none of the project's type or color — and was
 also the page people actually used to make their book, i.e. the least finished
 thing they saw.

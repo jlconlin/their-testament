@@ -10,7 +10,7 @@ import type { Annotation } from "./types.ts";
  * documents one by one -- they just turn into cache hits.
  *
  * Derivation goes through `classify()`, the same function assembly uses, so
- * the two cannot drift apart. Anything classify doesn't recognise is left out
+ * the two cannot drift apart. Anything classify doesn't recognize is left out
  * deliberately: assembly will still fetch it serially if it turns out to be
  * needed (notebook "passage" entries pointing outside scripture and General
  * Conference are the real case, and there are a handful, not a thousand).

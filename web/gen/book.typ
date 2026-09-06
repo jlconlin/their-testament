@@ -80,6 +80,11 @@
 #let ckey(part, book, ch) = part + "|" + book + "|" + str(ch)
 #let pkey(part) = "P|" + part
 
+// "2010-04" -> "2010s". General Conference runs to dozens of conferences, and
+// a flat list of them is hard to scan in a bookmark tree or a contents page --
+// the Church's own archive groups them by decade for the same reason.
+#let decade-of(confkey) = str(calc.floor(int(confkey.slice(0, 4)) / 10) * 10) + "s"
+
 // ---- page + base styles ----------------------------------------------------
 
 #let mirrored = doc.at("margins", default: "fixed") == "mirrored"
@@ -383,7 +388,9 @@
   let leader = box(width: 1fr, inset: (x: 0.4em), repeat(text(fill: rgb("#c9c1b3"))[.], gap: 0.28em))
 
   v(0.9in)
-  align(center, text(font: sans, size: 11pt, weight: "medium", tracking: 0.2em, fill: rgb("#4a4238"))[#upper(part.title) #h(0.4em) — #h(0.4em) #upper("Contents")])
+  align(center, text(font: sans, size: 11pt, weight: "medium", tracking: 0.2em, fill: rgb("#4a4238"))[
+    #upper(part.title) #h(0.4em) — #h(0.4em) #upper("Contents")#if continued [ #h(0.3em) (#upper("continued"))]
+  ])
   v(0.45in)
   set par(justify: false, leading: 0.5em, spacing: 0.5em)
 
@@ -413,8 +420,16 @@
       }
     }
   } else if part.kind == "gc" {
+    let curdecade = ""
     for conf in part.conferences {
-      block(above: 0.6em, below: 0.15em, text(font: sans, size: 9pt, fill: notegray)[#conf.label])
+      let dec = decade-of(conf.key)
+      if dec != curdecade {
+        curdecade = dec
+        block(above: 0.75em, below: 0.2em,
+          text(font: sans, size: 10pt, weight: "medium", tracking: 0.1em, fill: rgb("#4a4238"))[#dec])
+      }
+      block(above: 0.45em, below: 0.15em, pad(left: 0.6em,
+        text(font: sans, size: 9pt, fill: notegray)[#conf.label]))
       for talk in conf.talks {
         let loc = cmOf(part.key + "|" + conf.key + "|" + talk.slug)
         let p = relPage(loc)
@@ -590,8 +605,14 @@
 }
 
 #let render-gc-part(part) = {
+  let curdecade = ""
   for (ci, conf) in part.conferences.enumerate() {
-    heading(level: 2)[#conf.label]
+    // Decade headings are bookmark-only (`show heading: none` hides them), so
+    // this changes the outline without touching the printed page. A Part split
+    // mid-decade emits the same decade in both pieces; mergePdf.ts folds them.
+    let dec = decade-of(conf.key)
+    if dec != curdecade { curdecade = dec; heading(level: 2)[#dec] }
+    heading(level: 3)[#conf.label]
     v(if ci == 0 { 0.10in } else { 0.5in })
     align(center, text(font: sans, size: 13pt, weight: "medium", tracking: 0.14em, fill: rgb("#4a4238"))[#upper(conf.label)])
     v(0.3in)
@@ -601,7 +622,7 @@
       [#metadata(talk.title)<rh>]
       v(0.34in)
       block(breakable: false, {
-        heading(level: 3)[#talk.title]
+        heading(level: 4)[#talk.title]
         [#metadata(tkey)<cm>]
         set par(justify: false)
         align(center, box(width: gcw, {
@@ -706,8 +727,17 @@
         align(center, anchor(pkey(part.key),
           text(font: sans, size: 17pt, weight: "medium", tracking: 0.16em)[#upper(part.title)]))
       })
-      part-toc(part)
+    } else {
+      // A continuation prints no title page -- the Part is already titled in
+      // the piece before it -- but it still needs the Part's heading and <pm>
+      // marker. The heading renders as nothing (`show heading: none`); it
+      // exists only so this piece's chapters nest under the Part in the PDF
+      // outline instead of landing at the top level, and so the running head
+      // can measure a folio. mergePdf.ts folds the two Part entries into one.
+      heading(level: 1)[#part.title]
+      [#metadata(pkey(part.key))<pm>]
     }
+    part-toc(part)
     if part.kind == "notebooks" { render-notebooks-part(part) }
     else if part.kind == "scripture" { render-scripture-part(part) }
     else if part.kind == "gc" { render-gc-part(part) }

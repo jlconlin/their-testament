@@ -258,12 +258,53 @@ function buildOutline(lib: any, destDoc: any, items: OutlineItem[], destPages: a
   return { firstRef, lastRef, count: totalCount };
 }
 
+/** Shift a whole outline subtree from one piece's page space into the merged one. */
+function shiftPages(items: OutlineItem[], by: number): void {
+  for (const it of items) {
+    if (it.pageIndex != null) it.pageIndex += by;
+    shiftPages(it.children, by);
+  }
+}
+
+/**
+ * Fold together neighboring top-level entries that name the same thing.
+ *
+ * A Part too big for one compile is divided, and each piece becomes its own
+ * PDF carrying its own outline -- so a Part split in two arrives here as two
+ * "General Conference" entries in a row, each holding half the conferences.
+ * Left alone the reader sees the Part twice in the bookmark tree, with its
+ * contents arbitrarily divided. Merging adjacent same-titled entries restores
+ * the single Part the reader expects.
+ *
+ * Only *adjacent* entries merge, and only by title: two genuinely separate
+ * Parts that happen to share a name would have to be next to each other to be
+ * combined, which is exactly the case where combining them is right anyway.
+ */
+function coalesceAdjacent(items: OutlineItem[]): OutlineItem[] {
+  const out: OutlineItem[] = [];
+  for (const it of items) {
+    const prev = out[out.length - 1];
+    if (prev && prev.title === it.title && (prev.children.length || it.children.length)) {
+      prev.children.push(...it.children);
+      prev.pageIndex ??= it.pageIndex;   // keep the earliest destination
+      continue;
+    }
+    out.push(it);
+  }
+  // Recurse: a Part divided mid-decade yields two "General Conference"
+  // entries whose children both begin and end with, say, "2010s". Folding the
+  // Parts together is not enough if the decade inside them stays split.
+  for (const it of out) it.children = coalesceAdjacent(it.children);
+  return out;
+}
+
 export async function mergePdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
   const lib = await loadPdfLib();
   const { PDFDocument, PDFName, PDFDict, PDFNumber } = lib;
 
   const destDoc = await PDFDocument.create();
-  const chains: { firstRef: any; lastRef: any; count: number }[] = [];
+  let topLevel: OutlineItem[] = [];
+  let pageBase = 0;
 
   for (const bytes of pdfs) {
     const srcDoc = await PDFDocument.load(bytes);
@@ -278,28 +319,21 @@ export async function mergePdfs(pdfs: Uint8Array[]): Promise<Uint8Array> {
     const items = outlinesRef
       ? walkOutline(lib, srcDoc.context, srcDoc.context.lookup(outlinesRef, PDFDict), srcPageRefs)
       : [];
-    chains.push(buildOutline(lib, destDoc, items, copied));
+    shiftPages(items, pageBase);
+    topLevel.push(...items);
+    pageBase += copied.length;
   }
 
-  let firstRef: any = null, lastRef: any = null, prevRef: any = null, totalCount = 0;
-  for (const chain of chains) {
-    if (!chain.firstRef) continue;
-    if (prevRef) {
-      destDoc.context.lookup(prevRef, PDFDict).set(PDFName.of("Next"), chain.firstRef);
-      destDoc.context.lookup(chain.firstRef, PDFDict).set(PDFName.of("Prev"), prevRef);
-    }
-    firstRef ??= chain.firstRef;
-    lastRef = chain.lastRef;
-    prevRef = chain.lastRef;
-    totalCount += chain.count;
-  }
+  // Build only once, after coalescing, against the finished page list.
+  topLevel = coalesceAdjacent(topLevel);
+  const chain = buildOutline(lib, destDoc, topLevel, destDoc.getPages());
 
-  if (firstRef) {
+  if (chain.firstRef) {
     const root = destDoc.context.obj({
       Type: PDFName.of("Outlines"),
-      First: firstRef,
-      Last: lastRef,
-      Count: PDFNumber.of(totalCount),
+      First: chain.firstRef,
+      Last: chain.lastRef,
+      Count: PDFNumber.of(chain.count),
     });
     destDoc.catalog.set(PDFName.of("Outlines"), destDoc.context.register(root));
   }

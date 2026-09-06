@@ -96,7 +96,7 @@ Nothing in the pipeline changes to flip one.
 - Nested PDF bookmarks: Part > Book > Chapter, plus top-level Tag Index.
 - TOC + tag index hyperlinked (no underline). Per-Part page numbers.
 - Chapters flow (no forced page break); chapter heading kept with verse 1.
-- "Chapter N" headings; verse numbers de-emphasised.
+- "Chapter N" headings; verse numbers de-emphasized.
 - `margins: fixed|mirrored` flag implemented (env MARGINS= for now).
 - Pipeline: TS modules in src/, `npm run build:job`, template templates/book.typ.
 - TODO polish: verse-number weight, title, GC, mirrored gutter fine-tuning.
@@ -218,7 +218,7 @@ split.
     user explicitly wants to avoid).
 35a. The envelope `format` identifier is **`their-testament`** (matches the
     name). Changed from the pre-1.0 `gospel-library-preservation`, which is
-    still accepted on read (warning) and normalised. Safe to rename now —
+    still accepted on read (warning) and normalized. Safe to rename now —
     nothing public consumes it yet. The npm package name is a separate,
     lower-stakes string; leave it until M7.
 
@@ -279,7 +279,7 @@ Full spec: [annotations-format.md](annotations-format.md).
     not a `CNAME` file. Repo `jlconlin/their-testament`; MIT `LICENSE`, root
     `README.md`.
 44. Still to verify on the first live run (a real login): `start` index base,
-    the exact response wrapper, iPad Safari install, rate-limit behaviour.
+    the exact response wrapper, iPad Safari install, rate-limit behavior.
 45. **Public repo = `jlconlin/their-testament`.** Kept out of it, on purpose:
     `data/raw/` + `data/cache/` (always gitignored); `docs/private/` — the M3
     validation write-up and the old project-overview doc, which carry aggregate
@@ -680,7 +680,7 @@ Annotations only grow, so the split was tested at 2x and 4x the real book
 (synthesised by repeating Parts) and, separately, against the growth pattern
 that actually matters. Scripture Parts are bounded by the size of the canon;
 **General Conference is not** — two conferences a year, forever — so the
-realistic long-term shape is one Part growing without limit, which repeating
+realiztic long-term shape is one Part growing without limit, which repeating
 Parts does not exercise at all.
 
 - **Per-piece memory is flat.** 1x / 2x / 4x → 1,683 / 3,348 / 6,678 pages,
@@ -907,7 +907,7 @@ future bold or italic on `sans` will do nothing — so it is recorded at the
 font definition and in `web/fonts/README.md`.
 
 **Resolved same day — the site moved to Marcellus too, and Fraunces is gone**
-(4 font files + a licence deleted). The landing page is now set in the same
+(4 font files + a license deleted). The landing page is now set in the same
 face as the thing it advertises, so the hero's sample spread cannot drift from
 the product by construction.
 
@@ -955,12 +955,12 @@ response was recorded as a permanent failure and the document simply dropped
 out of the book — so one transient 503 in a twelve-minute run meant a keepsake
 quietly missing verses, with only a line in the completeness report to show
 for it. `src/contentFetch.ts` now retries 408/425/429/500/502/503/504 and
-network errors with exponential backoff and full jitter, honours `Retry-After`
+network errors with exponential backoff and full jitter, honors `Retry-After`
 when the server sends it, and deliberately does **not** retry a 404 — that
 document really is gone, and retrying it would just be slow *and* wrong.
 
 **Concurrency then became safe to add.** `RateGate` spaces when requests
-*start* rather than serialising them; the old `last = Date.now()` check could
+*start* rather than serializing them; the old `last = Date.now()` check could
 not do this, because under concurrency every caller reads the same stale
 timestamp and they all go at once. Settled at **5 in flight, 120 ms apart**
 (~8 docs/sec) — several times the old 2.5/sec ceiling while still visibly a
@@ -983,7 +983,7 @@ no failures. Projected full run **~3.4 min, from ~12**.
 
 The retry policy is unit-tested against a fake server (retries a 503, refuses
 to retry a 404, retries network errors, gives up when the budget is spent,
-honours Retry-After, gate spacing, pool concurrency cap, pool covers every
+honors Retry-After, gate spacing, pool concurrency cap, pool covers every
 item exactly once).
 
 
@@ -1022,7 +1022,7 @@ was introduced.
   thinking the day they read it").
 - **A new section, "A record of how someone read," sits second** — before any
   description of craft. The old order described *what the book contains*
-  (colours, lettering, running heads) long before saying why anyone would want
+  (colors, lettering, running heads) long before saying why anyone would want
   one.
 - **The you/they contradiction is answered outright**, in copy and in a new FAQ
   entry: the export reads the account you are signed in to, so a book of
@@ -1069,7 +1069,7 @@ The generated book reproduces Church-owned text and said nothing about it.
 There is now a copyright page on the **verso of the title leaf** — the
 conventional place, and it keeps the title page uncluttered. It quotes the
 operative permission from churchofjesuschrist.org's terms of use ("downloaded
-and printed for personal, noncommercial use") rather than claiming a licence
+and printed for personal, noncommercial use") rather than claiming a license
 that has not been granted; states that only personally marked passages appear
 and the scriptures are not reproduced in full; separates Church-owned text
 from the reader's own notes; and says the book is **not for sale or
@@ -1088,3 +1088,62 @@ the `.html` form so local development works, accepting one redirect hop in
 production. The `canonical` tag and `sitemap.xml` name the extensionless
 production URL, since those are production-only and should not advertise a
 redirect. Don't "fix" one to match the other without checking both ends.
+
+
+### Bisected Parts lost their bookmarks and half their contents (2026-09-06)
+
+Found in the first real run of the live generator. General Conference was
+divided into two pieces of 32 conferences; the second is a *continuation*,
+which suppresses the Part title page so the title does not print twice. That
+page also carried two things nobody had accounted for:
+
+- `heading(level: 1)`, the entry every conference bookmark nests under, and
+- the Part contents page.
+
+So conferences from October 2010 onward appeared as **top-level siblings** of
+"General Conference" in the outline, and were **absent from the contents page
+entirely**. The printed pages were correct throughout — only navigation was
+wrong, which is why it survived earlier testing.
+
+Three fixes:
+
+1. A continuation now emits the Part's `heading(level: 1)` and `<pm>` marker.
+   The heading renders as nothing (`show heading: none`); it exists only to
+   parent the bookmarks and let the running head measure a folio.
+2. `mergePdf.ts` **coalesces adjacent top-level entries with the same title**,
+   folding the two "General Conference" entries into one. This needed a
+   refactor: the merge used to build each piece's outline immediately and chain
+   the results, leaving no chance to combine them. It now collects every
+   piece's outline as a tree, shifts page indices into merged space, coalesces,
+   and builds once.
+3. Continuations get their own contents page, headed "(CONTINUED)". Rejected
+   the alternative of one combined contents page covering the whole Part: it
+   would need absolute page numbers, which are not known until every Part has
+   compiled. Two honest partial contents beat one page missing half its page
+   numbers.
+
+### General Conference grouped by decade (2026-09-06)
+
+Sixty-four conferences as a flat list is hard to scan in either the bookmark
+tree or the contents page. Both now group by decade — the way the Church's own
+conference archive does it — giving `General Conference > 2010s > April 2010 >
+talk`. Decade headings are bookmark-only, so nothing new prints on the page.
+
+This immediately re-created the bug above one level down: the 32/32 split falls
+*inside* the 2010s, so the two pieces each emitted a "2010s" heading and
+coalescing — which only handled the top level — left them separate.
+`coalesceAdjacent` is now **recursive**. Verified: 6 decades, 64 conferences,
+649 talks, with the 2010s appearing once and holding all 20 of its conferences.
+
+Coalescing is deliberately guarded: entries merge only when they share a title
+*and* at least one has children, so two adjacent leaf entries with the same
+name (two identically titled talks, say) are never silently collapsed into one.
+
+### American spelling throughout (2026-09-06)
+
+Converted across ten files, user-facing text included (the meta description and
+the hero's "the color they chose"): colour→color, licence→license,
+honour→honor, neighbouring→neighboring, recognise→recognize,
+normalised→normalized, catalogued→cataloged. Checked afterwards for words the
+substitutions could have mangled — `analysis`→`analyzis` was the live risk —
+and for the `LICENSE-*.txt` filenames, which are uppercase and untouched.

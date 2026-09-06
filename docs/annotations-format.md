@@ -46,7 +46,7 @@ Always the literal `"their-testament"`. This is a machine identifier that
 happens to match the project name (decision 35 in
 [`decisions.md`](decisions.md)); once public it stays stable so old files keep
 validating. The pre-1.0 name `"gospel-library-preservation"` is still accepted
-on read with a warning and normalised to `"their-testament"`. Any other
+on read with a warning and normalized to `"their-testament"`. Any other
 `format` is rejected.
 
 ### `version`
@@ -112,7 +112,7 @@ A record the generator relies on looks like:
 }
 ```
 
-Field semantics (offsets, the `clear` colour, the `style` misnomer, verse-ref
+Field semantics (offsets, the `clear` color, the `style` misnomer, verse-ref
 derivation) are documented in [`src/types.ts`](../src/types.ts).
 
 ---

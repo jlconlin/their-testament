@@ -62,7 +62,7 @@ export interface ValidationResult {
   wrappedLegacy: boolean;
   errors: string[];
   warnings: string[];
-  /** populated whenever `ok` — the normalised envelope ready for the generator */
+  /** populated whenever `ok` — the normalized envelope ready for the generator */
   envelope: AnnotationEnvelope | null;
 }
 

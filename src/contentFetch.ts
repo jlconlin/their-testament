@@ -27,7 +27,7 @@ export interface RetryOpts {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-/** Honour Retry-After, whether it is given in seconds or as an HTTP date. */
+/** Honor Retry-After, whether it is given in seconds or as an HTTP date. */
 function retryAfterMs(res: Response): number | null {
   const raw = res.headers?.get?.("Retry-After");
   if (!raw) return null;
