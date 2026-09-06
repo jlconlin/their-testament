@@ -894,10 +894,38 @@ suits a cited source better anyway. The trap is that this stays silent — a
 future bold or italic on `sans` will do nothing — so it is recorded at the
 font definition and in `web/fonts/README.md`.
 
-**Left open:** `index.html` still uses Fraunces, including the mock spread in
-the hero, so the site now advertises a face the tool doesn't produce. The
-Fraunces files stay only because the site references them. Resolve by moving
-the site to Marcellus and dropping them.
+**Resolved same day — the site moved to Marcellus too, and Fraunces is gone**
+(4 font files + a licence deleted). The landing page is now set in the same
+face as the thing it advertises, so the hero's sample spread cannot drift from
+the product by construction.
+
+Three findings from doing it:
+
+- **A silent bug had shipped in the commit above.** `templates/book.typ` asked
+  for Marcellus while `web/generate.html` still handed the WASM compiler
+  Fraunces, so every heading in a *browser-generated* PDF would have fallen
+  back to Typst's default face. The CLI path hid it completely — it reads a
+  whole font directory and so forgives a mismatch; the browser only gets the
+  files that list names. **Adding a family to the template means adding its
+  `.ttf` to that list**, now recorded in `web/fonts/README.md`. Verified by
+  compiling in-browser and reading back the embedded subsets.
+- **The sample spread had been wrong far longer than Fraunces was.** Verse
+  numbers, note reference headers and tag labels were set in `--sans` — the
+  *visitor's OS UI font* — so it rendered as San Francisco on macOS, Segoe UI
+  on Windows and Roboto on Android, matching the book on none of them. It now
+  mirrors `book.typ` through `--book-*` tokens named for their template
+  counterparts. It stays hand-built HTML rather than a screenshot: compact,
+  selectable, responsive and dark-mode aware in a way an image is not.
+- **The remaining `--sans` labels stay sans, deliberately.** Tried moving the
+  eyebrows, the `IN PROGRESS` badge and the CTA links to Marcellus and it was
+  clearly worse: they are set at 600 weight, which a single-face font cannot
+  do, so they went limp; the badge stopped reading as a badge and the links
+  stopped looking clickable. Those small sans labels are also the only thing
+  giving the page navigational scaffolding once everything else is serif. The
+  "renders differently per platform" objection that condemned it in the sample
+  spread does not transfer — for interface chrome, matching the visitor's OS is
+  the point. **Three faces, each with a job:** Marcellus display, EB Garamond
+  prose and book, platform sans for interface.
 
 **Also watch:** Marcellus's stroke contrast is exactly what makes it read like
 Optima, and the running heads are 7.5pt in a light gray (`headcol`). Fine on

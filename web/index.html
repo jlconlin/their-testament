@@ -15,19 +15,11 @@
 <meta property="og:image" content="https://theirtestament.org/og.png">
 <meta name="twitter:card" content="summary_large_image">
 
-<link rel="preload" as="font" type="font/woff2" href="fonts/fraunces.woff2" crossorigin>
 <link rel="preload" as="font" type="font/woff2" href="fonts/ebgaramond.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="fonts/marcellus.woff2" crossorigin>
 
 <style>
   /* ---- fonts ------------------------------------------------------- */
-  @font-face {
-    font-family: "Fraunces"; src: url("fonts/fraunces.woff2") format("woff2");
-    font-weight: 100 900; font-style: normal; font-display: swap;
-  }
-  @font-face {
-    font-family: "Fraunces"; src: url("fonts/fraunces-italic.woff2") format("woff2");
-    font-weight: 100 900; font-style: italic; font-display: swap;
-  }
   @font-face {
     font-family: "EB Garamond"; src: url("fonts/ebgaramond.woff2") format("woff2");
     font-weight: 400 800; font-style: normal; font-display: swap;
@@ -35,6 +27,15 @@
   @font-face {
     font-family: "EB Garamond"; src: url("fonts/ebgaramond-italic.woff2") format("woff2");
     font-weight: 400 800; font-style: italic; font-display: swap;
+  }
+  /* The display face for the site AND the book -- templates/book.typ sets the
+     same one, so the sample spread below cannot drift from what the tool makes.
+     One face only: no bold, no italic, and browsers synthesise neither here nor
+     in Typst, so don't ask for either. Weight declarations on headings would
+     silently do nothing, which is why there are none. */
+  @font-face {
+    font-family: "Marcellus"; src: url("fonts/marcellus.woff2") format("woff2");
+    font-weight: 400; font-style: normal; font-display: swap;
   }
 
   /* ---- tokens ---------------------------------------------------- */
@@ -51,8 +52,22 @@
     --mk-yellow: #fdefb0;
     --mk-blue:   #17c9d1;
     --serif: "EB Garamond", Georgia, "Times New Roman", serif;
-    --disp:  "Fraunces", Georgia, serif;
+    --disp:  "Marcellus", Georgia, serif;
     --sans:  -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+    /* ---- the book's own palette -----------------------------------
+       Mirrors templates/book.typ so the sample spread is a true detail of a
+       compiled page rather than an impression of one. Keep these in step with
+       the template: sans/ink/notegray/tagcol/vnumcol/headcol there.
+
+       --book-disp duplicates --disp today because site and book share a face.
+       It is kept separate on purpose: the spread must follow the *book*, so if
+       the site's display face ever changes again the sample stays truthful. */
+    --book-disp:  "Marcellus", Georgia, serif;   /* book.typ: sans */
+    --book-vnum:  #8f2704;                       /* book.typ: vnumcol */
+    --book-tag:   #8a7f6f;                       /* book.typ: tagcol  */
+    --book-note:  #544f49;                       /* book.typ: notegray */
+    --book-head:  #8a8378;                       /* book.typ: headcol */
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -67,6 +82,13 @@
       --shadow:  0 1px 2px rgba(0,0,0,.4), 0 16px 40px -14px rgba(0,0,0,.6);
       --mk-yellow: rgba(252,219,59,.30);
       --mk-blue:   #17c9d1;
+
+      /* The book's colours are drawn for ink on paper; on a dark ground they
+         go muddy, so lift them to the same relationships against the dark. */
+      --book-vnum: #d98b62;
+      --book-tag:  #b3a894;
+      --book-note: #c4b9a6;
+      --book-head: #a99c85;
     }
   }
 
@@ -78,11 +100,10 @@
     margin: 0; background: var(--paper); color: var(--ink);
     font-family: var(--serif); font-size: 1.22rem; line-height: 1.62;
     font-weight: 450; text-rendering: optimizeLegibility;
-    -webkit-font-smoothing: antialiased; font-optical-sizing: auto;
+    -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3 {
-    font-family: var(--disp); font-weight: 500; line-height: 1.14;
-    font-variation-settings: "SOFT" 40, "WONK" 0; letter-spacing: -.006em;
+    font-family: var(--disp); line-height: 1.14; letter-spacing: -.006em;
     margin: 0;
   }
   p { margin: 0 0 1.1rem; }
@@ -109,8 +130,7 @@
     font-family: var(--sans); font-size: .82rem;
   }
   .brand { display: flex; align-items: center; gap: .55rem; font-family: var(--disp);
-    font-size: 1.05rem; font-weight: 500; color: var(--ink); text-decoration: none;
-    font-variation-settings: "SOFT" 50; }
+    font-size: 1.05rem; color: var(--ink); text-decoration: none; }
   .brand svg { display: block; }
   .topbar .meta { color: var(--ink-soft); display: flex; align-items: center; gap: 1.1rem; }
   .topbar .meta a { color: var(--ink-soft); text-decoration: none; }
@@ -120,8 +140,7 @@
   /* ---- hero ---------------------------------------------------- */
   .hero { padding: clamp(2rem, 5vw, 3.5rem) 0 clamp(2.5rem, 5vw, 4rem); border-top: 0; }
   .hero h1 {
-    font-size: clamp(2.6rem, 7vw, 4.6rem); font-weight: 480;
-    font-variation-settings: "SOFT" 28, "WONK" 0;
+    font-size: clamp(2.6rem, 7vw, 4.6rem);
     max-width: 16ch; margin-bottom: 1.3rem;
   }
   .hero .lede { font-size: 1.35rem; color: var(--ink-soft); max-width: 34rem; }
@@ -142,30 +161,44 @@
   }
   .leaf:hover { transform: rotate(0deg); }
   @media (prefers-reduced-motion: reduce) { .leaf { transform: none; } }
+  /* Everything below mirrors templates/book.typ. The spread is deliberately a
+     tight crop rather than a whole page -- compact enough to read at a glance
+     -- but the type inside it is the book's, not the site's, so what a visitor
+     sees here is what the tool actually makes. */
   .leaf-head {
-    display: flex; justify-content: space-between; font-family: var(--disp);
-    font-size: .72rem; letter-spacing: .13em; text-transform: uppercase;
-    color: var(--ink-soft); padding-bottom: .5rem; border-bottom: 1px solid var(--rule);
-    font-variation-settings: "SOFT" 60;
+    display: flex; justify-content: space-between; font-family: var(--book-disp);
+    font-size: .72rem; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--book-head); padding-bottom: .5rem; border-bottom: 1px solid var(--rule);
+    font-variant-numeric: lining-nums;
   }
   .leaf-cols { display: grid; grid-template-columns: 1fr 8.6rem; gap: 1rem; margin-top: 1rem; }
   .leaf .v { font-size: 1.02rem; line-height: 1.5; margin: 0 0 .7rem; hyphens: auto; }
-  .leaf .v sup { font-family: var(--sans); font-size: .58rem; color: var(--ink-soft); margin-right: .15em; font-weight: 600; }
+  /* book.typ sets the unit number inline at 8pt against 10.5pt body, in
+     vnumcol -- not as a superscript, and not in a UI sans. */
+  .leaf .v .vn { font-size: .76em; color: var(--book-vnum); margin-right: .4em;
+    font-variant-numeric: lining-nums; }
   .leaf .mk { background: var(--mk-yellow); padding: .04em 0; border-radius: 1px;
     -webkit-box-decoration-break: clone; box-decoration-break: clone; }
   .leaf .mk.u { background: none; box-shadow: inset 0 -.16em 0 var(--mk-blue); }
   .leaf .margin { border-left: 1px solid var(--rule); padding-left: .85rem; }
-  .leaf .note { font-size: .82rem; line-height: 1.42; color: var(--ink); margin-bottom: 1rem; }
+  .leaf .note { font-size: .82rem; line-height: 1.42; color: var(--book-note); margin-bottom: 1rem; }
   .leaf .note:last-child { margin-bottom: 0; }
   .leaf .note p { margin: .2rem 0 .35rem; }
-  .leaf .rh { font-family: var(--sans); font-size: .62rem; font-weight: 700; letter-spacing: .04em;
-    display: inline-block; padding: .12em .4em; border-radius: 2px; color: var(--accent-2); }
+  /* the note's reference header echoes its highlight -- book.typ: ref-header */
+  .leaf .rh { font-size: .72em; letter-spacing: .04em; font-variant-numeric: lining-nums;
+    display: inline-block; padding: .12em .4em; border-radius: 2px; color: var(--book-tag); }
   .leaf .rh.y { background: var(--mk-yellow); color: #6b5410; }
   .leaf .rh.b {
     background: none; border-radius: 0; padding: .12em .05em .04em; color: var(--ink);
     box-shadow: inset 0 -.14em 0 var(--mk-blue);
   }
-  .leaf .tag { font-family: var(--sans); font-size: .64rem; color: var(--ink-soft); letter-spacing: .03em; }
+  /* book.typ: a small filled square, then the tags in small caps */
+  .leaf .tag { font-size: .64em; color: var(--book-tag); letter-spacing: .08em;
+    font-variant: small-caps; }
+  .leaf .tag::before {
+    content: ""; display: inline-block; width: .34em; height: .34em;
+    background: var(--book-tag); margin-right: .45em; vertical-align: .06em;
+  }
   @media (prefers-color-scheme: dark) {
     .leaf .rh.y { color: #e9d9a4; }
   }
@@ -308,9 +341,9 @@
           <div class="leaf-head"><span>Psalm 23</span><span>142</span></div>
           <div class="leaf-cols">
             <div>
-              <p class="v"><sup>1</sup> The Lord <span class="mk">is</span> my shepherd;
+              <p class="v"><span class="vn">1</span> The Lord <span class="mk">is</span> my shepherd;
                 I shall not want.</p>
-              <p class="v"><sup>4</sup> Yea, though I walk <span class="mk u">through</span> the valley of the
+              <p class="v"><span class="vn">4</span> Yea, though I walk <span class="mk u">through</span> the valley of the
                 shadow of death, I will fear no evil: for
                 thou <em>art</em> with me.</p>
             </div>
@@ -318,7 +351,7 @@
               <div class="note">
                 <span class="rh y">23:1</span>
                 <p>He <em>is</em> — present tense. Not someday. The care is happening now.</p>
-                <span class="tag">❧ shepherd</span>
+                <span class="tag">shepherd</span>
               </div>
               <div class="note">
                 <span class="rh b">23:4</span>
@@ -372,11 +405,11 @@
         <div class="leaf-head"><span>Alma 32</span><span>214</span></div>
         <div class="leaf-cols">
           <div>
-            <p class="v"><sup>21</sup> And now as I said concerning faith — faith is
+            <p class="v"><span class="vn">21</span> And now as I said concerning faith — faith is
               not to have a perfect knowledge of things; therefore
               <span class="mk">if ye have faith ye hope for things which are not
               seen, which are true</span>.</p>
-            <p class="v"><sup>27</sup> But behold, if ye will awake and arouse your
+            <p class="v"><span class="vn">27</span> But behold, if ye will awake and arouse your
               faculties, even to an <span class="mk u">experiment upon my words</span>…</p>
           </div>
           <aside class="margin">

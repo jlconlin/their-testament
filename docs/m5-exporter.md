@@ -10,7 +10,7 @@ Library annotations out as a `their-testament` `annotations.json`
 |---|---|
 | `web/index.html` | the landing page — hero, sample spreads, how-it-works, privacy, FAQ; the "drag me" bookmarklet lives here |
 | `web/e.js` | the exporter — paginates the Notes API, wraps, downloads |
-| `web/fonts/` | self-hosted Fraunces + EB Garamond (OFL); no third-party font requests |
+| `web/fonts/` | self-hosted Marcellus + EB Garamond (OFL); no third-party font requests |
 | `web/favicon.svg`, `web/og.png` | icon + social-share card |
 | `web/404.html`, `web/robots.txt`, `web/sitemap.xml`, `web/_headers` | static-host support files |
 | `web/bookmarklet.txt` | the generated `javascript:` loader (copy for reference) |

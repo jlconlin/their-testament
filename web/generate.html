@@ -220,9 +220,13 @@ goButton.addEventListener("click", async () => {
 
     log("compiling to PDF (typst-wasm)…");
     stage = "compiling";
+    // Must match the families templates/book.typ actually asks for. The CLI
+    // reads a whole font directory and so forgives a mismatch here; the
+    // browser only gets what this list names, and a missing family falls back
+    // silently to Typst's default face.
     const fonts = [
       "./fonts/EBGaramond.ttf", "./fonts/EBGaramond-Italic.ttf",
-      "./fonts/Fraunces.ttf", "./fonts/Fraunces-Italic.ttf",
+      "./fonts/Marcellus-Regular.ttf",
     ];
     const compileProgress = document.createElement("div");
     compileProgress.id = "progress";

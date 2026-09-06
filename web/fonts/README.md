@@ -4,30 +4,42 @@ Self-hosted so the site makes no third-party requests.
 
 | family | web (site CSS) | typeset (Typst / book.typ) | axes | license |
 |---|---|---|---|---|
-| **Marcellus** (book headings) | — | `Marcellus-Regular.ttf` | none (single face) | OFL 1.1 — `LICENSE-Marcellus.txt` |
+| **Marcellus** (headings) | `marcellus.woff2` | `Marcellus-Regular.ttf` | none (single face) | OFL 1.1 — `LICENSE-Marcellus.txt` |
 | **EB Garamond** (body) | `ebgaramond.woff2`, `ebgaramond-italic.woff2` | `EBGaramond.ttf`, `EBGaramond-Italic.ttf` | wght 400–800 | OFL 1.1 — `LICENSE-EBGaramond.txt` |
-| **Fraunces** (site headings) | `fraunces.woff2`, `fraunces-italic.woff2` | `Fraunces.ttf`, `Fraunces-Italic.ttf` | opsz 9–144, wght 100–900, SOFT, WONK | OFL 1.1 — `LICENSE-Fraunces.txt` |
 
-The `.woff2` files are Latin variable subsets from the `@fontsource-variable`
-packages (jsDelivr), used by the site's own CSS. The `.ttf` files are pulled
-straight from [google/fonts](https://github.com/google/fonts) — Typst's
-WASM/CLI compiler needs raw sfnt (ttf/otf), not woff2 — and are what
-`templates/book.typ` compiles the keepsake PDF with, replacing the commercial
-Adobe Garamond Pro / Optima pairing (decided 2026-09-04, revised 2026-09-06;
-see `docs/decisions.md`).
+Two families, used by both the site and the book. The `.woff2` files are for
+the site's CSS; the `.ttf` files are what Typst compiles the PDF with — its
+WASM/CLI compiler needs raw sfnt, not woff2. They are the same two typefaces on
+purpose: one license pair to track, and a landing page that is set in the same
+face as the thing it is advertising.
 
-**The site and the book currently disagree, and that is a known gap, not a
-decision.** `index.html` still sets Fraunces as its display face — including
-the mock book spread in the hero, which therefore advertises a typeface the
-tool no longer produces. The book moved to Marcellus because Fraunces is a
-*serif* and the design depends on a sans/serif contrast against the body text;
-Marcellus is the open-licensed face closest to the Optima that contrast was
-originally drawn around. Fraunces's files are kept only because the site still
-references them. Resolve by moving the site to Marcellus too, then dropping
-the Fraunces files.
+**Marcellus ships exactly one face — no bold, no italic.** Neither Typst nor a
+browser synthesises them: both silently fall back to Regular, with no warning
+and no faux slant. So don't set a weight or an italic on a heading; it will do
+nothing rather than fail loudly. Real bold and italic are available on the body
+face (EB Garamond), which is where a person's own notes render anyway.
 
-Marcellus ships a single face — no bold, no italic — and Typst substitutes
-Regular **silently**, with no warning and no synthesised slant. That costs
-nothing today (`weight: "medium"` resolves to Regular under Optima too, and
-nothing sets the display font bold), but reaching for bold or italic on `sans`
-will quietly do nothing.
+## Keeping the sample spread honest
+
+The hero's mock page (`.leaf` in `index.html`) exists to show what the tool
+actually produces, so its type mirrors `templates/book.typ` — Marcellus running
+heads, EB Garamond body, and the book's own colours through the `--book-*`
+tokens, each commented with the `book.typ` name it mirrors.
+
+It had drifted badly before: verse numbers, note reference headers and tag
+labels were all set in `--sans`, i.e. the *visitor's operating-system UI font*,
+so the sample rendered differently on macOS, Windows and Android and matched
+the book on none of them.
+
+It stays a hand-built HTML crop rather than a screenshot of a compiled page,
+deliberately — compact, selectable, responsive and dark-mode aware in a way an
+image is not. The price is that it can drift again. **If you change type or
+colour in `book.typ`, change it in `.leaf` too.**
+
+## Font lists are duplicated — keep them in step
+
+`web/generate.html` names the font files it hands to the WASM compiler. That
+list must match the families `book.typ` asks for. The CLI path forgives a
+mismatch because it reads a whole font directory; the browser does not, and an
+unlisted family falls back silently to Typst's default face. Adding a family to
+the template means adding its `.ttf` to that list.
