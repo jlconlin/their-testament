@@ -201,6 +201,30 @@
   }
 })
 
+// A note whose highlight landed on the chapter heading or study summary
+// belongs to the whole chapter, not one verse -- so it sits under the heading,
+// full measure, rather than in the margin beside a verse it never referred to.
+#let chapter-note-block(notes) = {
+  if notes.len() == 0 { return }
+  v(0.10in)
+  align(center, box(width: colw, {
+    set par(justify: false, leading: 0.5em, spacing: 0.45em)
+    set text(size: 8.2pt, fill: notegray)
+    align(left, block(width: 100%, inset: (left: 0.5em), stroke: (left: 0.6pt + gapmark), {
+      for (i, n) in notes.enumerate() {
+        if i > 0 { v(0.4em) }
+        if n.title != none { text(style: "italic", weight: "bold")[#n.title]; linebreak() }
+        render-note-body(n.body)
+        if n.tags.len() > 0 {
+          linebreak()
+          text(size: 6.6pt, tracking: 0.08em, fill: tagcol)[#smallcaps(n.tags.join("  ·  "))]
+        }
+      }
+    }))
+  }))
+  v(0.16in)
+}
+
 #let note-stack(notes) = {
   set text(size: 8pt, fill: notegray, number-type: "old-style")
   set par(hanging-indent: 0pt, first-line-indent: 0pt)
@@ -596,6 +620,7 @@
       align(center, box(width: colw)[#align(center,
         text(font: sans, size: 12pt, weight: "medium", tracking: 0.08em, fill: rgb("#4a4238"), number-type: "lining")[#cw-word #ch.chapter])])
       v(0.2in)
+      chapter-note-block(ch.at("chapterNotes", default: ()))
       verse(part.key, ch.book, ch.chapter, ch.verses.first())
     })
     if ch.verses.len() > 1 {
@@ -635,6 +660,7 @@
           }
         }))
         v(0.24in)
+        chapter-note-block(talk.at("chapterNotes", default: ()))
         if talk.paragraphs.len() > 0 {
           unit(tkey + "|" + talk.paragraphs.first().ref, talk.paragraphs.first(), kind: "para", cw: gcw)
         }

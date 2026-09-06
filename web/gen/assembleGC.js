@@ -83,13 +83,16 @@ export async function assembleConferencePart(annotations, years, content, partKe
                     sort: [1000 + order, paraNum(parsed, ref), 0],
                 });
             }
-            if (res.docVerses.length > 0) {
+            // Same as scripture: a talk whose only annotation was a note on its
+            // title still belongs in the book, or the note vanishes with it.
+            if (res.docVerses.length > 0 || res.chapterNotes.length > 0) {
                 talks.push({
                     slug,
                     title: parsed.title,
                     speaker: parsed.speaker,
                     role: parsed.role,
                     paragraphs: res.docVerses,
+                    chapterNotes: res.chapterNotes.length ? res.chapterNotes : undefined,
                 });
             }
         }

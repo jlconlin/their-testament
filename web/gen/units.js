@@ -5,11 +5,24 @@ import { parseNote } from "./noteHtml.js";
 import { segment } from "./segment.js";
 const LETTERS = "abcdefghijklmnopqrstuvwxyz";
 const style = (h) => (h.style ? "underline" : "fill");
+/**
+ * Anchors that name a piece of a chapter's furniture rather than a verse.
+ * `parseVerses` only ever yields verses, so a highlight on one of these has a
+ * pid that exists in the page yet matches nothing in the lookup -- which is
+ * how a perfectly locatable note used to end up "unplaceable".
+ */
+const HEADING_ANCHOR = /\.(title|title_number|study_intro|study_summary|intro|subtitle|kicker)\d*$/;
+/** True when every in-scope highlight points at chapter furniture. */
+function isChapterLevel(uris) {
+    return uris.length > 0 && uris.every((u) => HEADING_ANCHOR.test(u));
+}
 export function assembleUnits(units, anns, opts) {
     const byAid = new Map(units.map((u) => [u.aid, u]));
     const byVid = new Map(units.map((u) => [u.vid, u]));
     const marksByRef = new Map();
     const notesByRef = new Map();
+    const chapterNotes = [];
+    const chapterNoteTags = [];
     const tagRefs = [];
     const located = [];
     const noMatch = [];
@@ -75,10 +88,31 @@ export function assembleUnits(units, anns, opts) {
             continue;
         const anchorRef = spanRefs[0];
         if (!anchorRef) {
+            const body = parseNote(a.note?.content);
+            const contributes = body.length > 0 || !!a.note?.title || a.tags.length > 0;
+            // A highlight on the chapter heading, its number, or the study summary
+            // is a note about the whole chapter -- we know exactly where it belongs,
+            // so keep it here rather than sending it to "Notes We Couldn't Place".
+            if (contributes && isChapterLevel(hs.map((h) => h.uri ?? ""))) {
+                diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
+                    detail: hs.map((h) => h.uri).join(",") });
+                chapterNotes.push({
+                    refLabel: opts.label,
+                    mark: null,
+                    isReference: a.type === "reference",
+                    title: a.note?.title ?? null,
+                    body,
+                    tags: a.tags.map((t) => t.name),
+                    created,
+                    spanRefs: [],
+                });
+                for (const t of a.tags)
+                    chapterNoteTags.push(t.name);
+                continue;
+            }
             diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
                 detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
-            const body = parseNote(a.note?.content);
-            if (body.length > 0 || a.note?.title || a.tags.length > 0) {
+            if (contributes) {
                 unplacedNotes.push({
                     annotationId: a.annotationId, created, source: opts.label,
                     title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
@@ -152,6 +186,14 @@ export function assembleUnits(units, anns, opts) {
         });
         prev = u.num;
     }
+    // A chapter-level note has no verse of its own, so its tags point at the
+    // chapter's first shown verse -- the tag index then lands the reader on the
+    // chapter, which is what the note was about. With nothing shown there is
+    // nowhere to point, and the tag is dropped rather than left dangling.
+    if (docVerses.length > 0) {
+        for (const tag of chapterNoteTags)
+            tagRefs.push({ tag, ref: docVerses[0].ref });
+    }
     const multiNoteUnits = [...notesByRef.values()].filter((ns) => ns.length > 1).length;
-    return { docVerses, tagRefs, located, noMatch, diags, unplacedNotes, multiNoteUnits };
+    return { docVerses, tagRefs, located, noMatch, diags, unplacedNotes, chapterNotes, multiNoteUnits };
 }

@@ -149,6 +149,8 @@ export interface DocChapter {
   reference: string;          // "Job 1"
   chapterWord: string;        // "Chapter" | "Psalm" | "Section"
   verses: DocVerse[];
+  /** notes highlighted on the chapter heading/summary rather than a verse */
+  chapterNotes?: Note[];
 }
 
 // General Conference ---------------------------------------------------------
@@ -159,6 +161,8 @@ export interface DocTalk {
   speaker: string;            // "Dieter F. Uchtdorf"
   role: string | null;       // "Second Counselor in the First Presidency"
   paragraphs: DocVerse[];    // same shape as verses; `num` is the paragraph ordinal
+  /** notes highlighted on the talk title rather than a paragraph */
+  chapterNotes?: Note[];
 }
 
 export interface DocConference {

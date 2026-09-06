@@ -112,13 +112,17 @@ export async function assembleScriptureBook(
       });
     }
 
-    if (res.docVerses.length > 0) {
+    // A chapter with no marked verses still earns its place if a note was
+    // written on its heading or summary -- that note is about the chapter, and
+    // dropping the chapter would silently drop the note with it.
+    if (res.docVerses.length > 0 || res.chapterNotes.length > 0) {
       chapters.push({
         book: spec.name,
         chapter,
         reference: `${spec.name} ${chapter}`,
         chapterWord: spec.chapterWord ?? "Chapter",
         verses: res.docVerses,
+        chapterNotes: res.chapterNotes.length ? res.chapterNotes : undefined,
       });
     }
   }

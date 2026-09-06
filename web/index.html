@@ -756,6 +756,20 @@ import { planContentUris } from "./gen/contentPlan.js";
 import { renderBookAuto } from "./gen/browserRender.js";
 import { summarizeDiags } from "./gen/diagSummary.js";
 
+// The generator is ES modules all the way down, so it only works over http(s).
+// Opened from disk (file://) or from an editor's data: preview, the imports
+// above never resolve, no listener is attached, and the button stays disabled
+// with nothing to explain why. Say so instead.
+if (location.protocol !== "http:" && location.protocol !== "https:") {
+  const log = document.getElementById("log");
+  if (log) {
+    log.textContent =
+      "This page is open as a local file, so the generator can't run.\n\n" +
+      "Open it from a web address instead — https://theirtestament.org — and " +
+      "the button below will work.";
+  }
+}
+
 const fileInput = document.getElementById("file");
 const goButton = document.getElementById("go");
 const logEl = document.getElementById("log");

@@ -1147,3 +1147,46 @@ honour→honor, neighbouring→neighboring, recognise→recognize,
 normalised→normalized, catalogued→cataloged. Checked afterwards for words the
 substitutions could have mangled — `analysis`→`analyzis` was the live risk —
 and for the `LICENSE-*.txt` filenames, which are uppercase and untouched.
+
+
+### Chapter-level notes: 30 unplaced notes down to 4 (2026-09-06)
+
+Jeremy's guess was right — most "Notes We Couldn't Place" were written on
+chapter furniture rather than verses — and it took two wrong diagnoses to
+confirm it.
+
+**The mechanism.** `byAid` is built only from *parsed verses*, and
+`parseVerses` yields verses, never headings, study summaries or titles. So a
+highlight on `.title_number1` carries a pid that exists in the page yet matches
+nothing in the lookup: `pid-no-match` → no anchor → exiled to the appendix. Not
+a stale pid, not changed content — a lookup that never held those elements. My
+first check counted only notes with body text (missing title-only and tag-only
+ones, giving 10 instead of 26); my second compared pids against the raw HTML,
+found all 26 present, and wrongly concluded the pids were fine. They are fine.
+
+**The fix.** A highlight landing only on `.title`, `.title_number`,
+`.study_intro`, `.study_summary`, `.intro`, `.subtitle` or `.kicker` is a note
+about the whole chapter, and the URI says exactly which. Those now become
+`chapterNotes` on the `DocChapter`/`DocTalk` and render full-measure beneath
+the heading, ruled to distinguish them from margin notes. Their tags point at
+the chapter's first shown verse so the tag index lands the reader on the
+chapter; with nothing shown the tag is dropped rather than left dangling.
+
+**A silent loss caught in verification.** The first run routed 26 and rendered
+25. The missing one was Acts 28, whose *only* annotation was the heading note —
+and both assemblers dropped chapters with `docVerses.length === 0`, taking the
+note with the chapter. Both now keep a chapter or talk that carries chapter
+notes. Worth recording because 25 placed still looked like success; only
+comparing routed against rendered exposed it.
+
+Result on the real export: **30 unplaced → 4**. The remaining four (Official
+Declarations 1 and 2, two General Conference talks) resolve to nothing at all,
+and the appendix is the right home for them.
+
+### Non-http guard on the generator (2026-09-06)
+
+Opened from `file://` or an editor's `data:` preview, the generator's ES module
+imports never resolve, no listener attaches, and the Generate button sits
+disabled with nothing to explain why — which is exactly how Jeremy hit it, in a
+preview tab an editor had opened. The page now detects a non-http(s) protocol
+and says so in place of the log text.

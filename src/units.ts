@@ -21,6 +21,7 @@ export type DiagCategory =
   | "pid-no-match"        // highlight's paragraph id / uri matched no parsed unit
   | "clear"              // clear color — intentionally no visual mark
   | "note-no-anchor"     // annotation has a note/tags but no highlight to anchor it
+  | "chapter-note"       // highlight was on the chapter heading/summary -- kept at chapter level
   | "note-parse-empty";  // note had content but parsed to nothing
 
 export interface Diag {
@@ -56,8 +57,27 @@ export interface UnitsResult {
   noMatch: string[];
   diags: Diag[];
   unplacedNotes: UnplacedNote[];
+  /**
+   * Notes whose highlight landed on the chapter heading, its number, or the
+   * study summary rather than on a verse. They belong to the whole chapter,
+   * so they are rendered at its head instead of being exiled to the back.
+   */
+  chapterNotes: Note[];
   /** verses/paragraphs carrying >1 note */
   multiNoteUnits: number;
+}
+
+/**
+ * Anchors that name a piece of a chapter's furniture rather than a verse.
+ * `parseVerses` only ever yields verses, so a highlight on one of these has a
+ * pid that exists in the page yet matches nothing in the lookup -- which is
+ * how a perfectly locatable note used to end up "unplaceable".
+ */
+const HEADING_ANCHOR = /\.(title|title_number|study_intro|study_summary|intro|subtitle|kicker)\d*$/;
+
+/** True when every in-scope highlight points at chapter furniture. */
+function isChapterLevel(uris: string[]): boolean {
+  return uris.length > 0 && uris.every((u) => HEADING_ANCHOR.test(u));
 }
 
 export function assembleUnits(
@@ -78,6 +98,8 @@ export function assembleUnits(
   const byVid = new Map(units.map((u) => [u.vid, u]));
   const marksByRef = new Map<string, Mark[]>();
   const notesByRef = new Map<string, Note[]>();
+  const chapterNotes: Note[] = [];
+  const chapterNoteTags: string[] = [];
   const tagRefs: { tag: string; ref: string }[] = [];
   const located: LocatedRow[] = [];
   const noMatch: string[] = [];
@@ -139,10 +161,32 @@ export function assembleUnits(
     if (!hasText && a.tags.length === 0) continue;
     const anchorRef = spanRefs[0];
     if (!anchorRef) {
+      const body = parseNote(a.note?.content);
+      const contributes = body.length > 0 || !!a.note?.title || a.tags.length > 0;
+
+      // A highlight on the chapter heading, its number, or the study summary
+      // is a note about the whole chapter -- we know exactly where it belongs,
+      // so keep it here rather than sending it to "Notes We Couldn't Place".
+      if (contributes && isChapterLevel(hs.map((h) => h.uri ?? ""))) {
+        diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
+          detail: hs.map((h) => h.uri).join(",") });
+        chapterNotes.push({
+          refLabel: opts.label,
+          mark: null,
+          isReference: a.type === "reference",
+          title: a.note?.title ?? null,
+          body,
+          tags: a.tags.map((t) => t.name),
+          created,
+          spanRefs: [],
+        });
+        for (const t of a.tags) chapterNoteTags.push(t.name);
+        continue;
+      }
+
       diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
         detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
-      const body = parseNote(a.note?.content);
-      if (body.length > 0 || a.note?.title || a.tags.length > 0) {
+      if (contributes) {
         unplacedNotes.push({
           annotationId: a.annotationId, created, source: opts.label,
           title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
@@ -218,6 +262,14 @@ export function assembleUnits(
     prev = u.num;
   }
 
+  // A chapter-level note has no verse of its own, so its tags point at the
+  // chapter's first shown verse -- the tag index then lands the reader on the
+  // chapter, which is what the note was about. With nothing shown there is
+  // nowhere to point, and the tag is dropped rather than left dangling.
+  if (docVerses.length > 0) {
+    for (const tag of chapterNoteTags) tagRefs.push({ tag, ref: docVerses[0]!.ref });
+  }
+
   const multiNoteUnits = [...notesByRef.values()].filter((ns) => ns.length > 1).length;
-  return { docVerses, tagRefs, located, noMatch, diags, unplacedNotes, multiNoteUnits };
+  return { docVerses, tagRefs, located, noMatch, diags, unplacedNotes, chapterNotes, multiNoteUnits };
 }
