@@ -661,6 +661,47 @@ leftover markers, all 1,718 outline entries intact, and spot-checked page
 numbers landing on the right talk (tag index "O-23, Wright, p. 1421" → page
 1421 is Amy A. Wright's "Abide the Day in Christ" from October 2023).
 
+### Pieces are sized up front, not discovered by failing (2026-09-05)
+
+Annotations only grow, so the split was tested at 2x and 4x the real book
+(synthesised by repeating Parts) and, separately, against the growth pattern
+that actually matters. Scripture Parts are bounded by the size of the canon;
+**General Conference is not** — two conferences a year, forever — so the
+realistic long-term shape is one Part growing without limit, which repeating
+Parts does not exercise at all.
+
+- **Per-piece memory is flat.** 1x / 2x / 4x → 1,683 / 3,348 / 6,678 pages,
+  and the worst single piece stayed at ~1.0 GB throughout, because the split
+  grows the *number* of pieces rather than their size. All links held: at 4x,
+  16,189 cross-file jumps and 8,884 internal links, zero broken.
+- **For one oversized Part, the binding wall is the call stack, not memory.**
+  A 2,596-talk Conference Part failed with a layout-recursion
+  `RangeError` at 3.90 GB; halving it to 1,298 talks still failed, at
+  **~1.9 GB — less than half the 4.29 GB memory ceiling**. Only at 649 talks
+  (~1.0 GB) did it compile. So memory headroom badly overstates how large a
+  piece may be, and unit count -- which tracks recursion depth -- is the
+  honest measure.
+- **Discovery by failure had become the dominant cost.** On that book, the
+  doomed one-pass attempt plus three failed Part compiles burned **78% of
+  total wall time**, and every such attempt gets slower as books grow.
+
+So pieces are now planned before anything is compiled: `PIECE_UNIT_CAP =
+4000` units (verses / conference paragraphs / notebook entries), halving a
+Part until each piece is under it. The cap comes from the measurements above
+(3,609 units compiles in 14s; 7,218 dies), and it never fires on scripture —
+Book of Mormon is 1,581 units. Bisection stays as the safety net for anything
+the plan misjudges. One pass is likewise attempted only when the whole book
+would fit in a single piece, since below that the attempt is quick and the
+payoff is a fully clickable book with no merge at all.
+
+Result, with identical output (extracted text byte-for-byte the same as the
+bisected build, same 5,673 + 2,221 links, same 3,857 bookmarks):
+
+| book | before | after |
+| --- | --- | --- |
+| real | ~2.7 min | **0.7 min** |
+| 4x General Conference | 7.4 min | **1.6 min** |
+
 ### Friendly failure messages (added 2026-09-04)
 
 A failure used to just dump `FAILED: ${e.stack}` into the log — not

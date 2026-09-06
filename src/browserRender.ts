@@ -140,10 +140,48 @@ function runChunk(
 }
 
 /**
- * Halve a Part's contents. Only used when a Part is by itself too big to
- * compile -- Parts are wildly uneven (one book here holds 649 conference
- * talks against another's 5 chapters), so "one chunk per Part" alone isn't a
- * guarantee that any chunk actually fits.
+ * Biggest piece worth handing the compiler, counted in units (verses,
+ * conference paragraphs, notebook entries).
+ *
+ * Measured, not guessed: a 3,609-unit piece compiles in 14s at ~1.0 GB, while
+ * 7,218 units dies after 35s. Note what it dies *of* -- a layout-recursion
+ * stack overflow at ~1.9 GB, less than half the 4.29 GB memory ceiling. Memory
+ * headroom is therefore a misleading signal for how big a piece may be; unit
+ * count tracks the recursion depth that actually breaks first.
+ *
+ * Scripture Parts sit far below this (Book of Mormon: 1,581 units) and are
+ * bounded by the size of the canon anyway. General Conference is the one that
+ * grows without limit -- two conferences a year, forever -- so in practice
+ * this is what keeps that Part in compilable pieces.
+ */
+const PIECE_UNIT_CAP = 4000;
+
+/** Units of content in a Part -- what the compiler's recursion depth tracks. */
+function countUnits(part: any): number {
+  if (part.kind === "scripture") {
+    return (part.chapters ?? []).reduce((n: number, c: any) => n + (c.verses?.length ?? 0), 0);
+  }
+  if (part.kind === "gc") {
+    return (part.conferences ?? []).reduce(
+      (n: number, c: any) =>
+        n + (c.talks ?? []).reduce((m: number, t: any) => m + (t.paragraphs?.length ?? 0), 0),
+      0,
+    );
+  }
+  if (part.kind === "notebooks") {
+    return (part.notebooks ?? []).reduce(
+      (n: number, nb: any) =>
+        n + (nb.entries ?? []).reduce((m: number, e: any) => m + 1 + (e.verses?.length ?? 0), 0),
+      0,
+    );
+  }
+  return 0;
+}
+
+/**
+ * Halve a Part's contents. Parts are wildly uneven (one book here holds 649
+ * conference talks against another's 5 chapters), so "one chunk per Part" is
+ * no guarantee that any chunk actually fits.
  */
 function splitPart(part: any): [any, any] | null {
   const halve = <T,>(xs: T[]): [T[], T[]] => {
@@ -181,8 +219,22 @@ interface SplitCtx {
   onProgress?: (label: string) => void;
 }
 
-/** Compile one Part, dividing it and retrying if it won't fit on its own. */
-async function compilePart(ctx: SplitCtx, part: any, out: Uint8Array[], continued = false): Promise<void> {
+/**
+ * Divide a Part into pieces small enough to compile, before trying any of
+ * them. Discovering the limit by failure is expensive and gets more so as
+ * books grow -- on a book with a 2,596-talk Conference Part, the failed
+ * attempts cost 78% of the total run. Planning the split up front spends that
+ * time on output instead.
+ */
+function planPieces(part: any): any[] {
+  if (countUnits(part) <= PIECE_UNIT_CAP) return [part];
+  const halves = splitPart(part);
+  if (!halves) return [part]; // indivisible: let it try, and fail honestly
+  return [...planPieces(halves[0]), ...planPieces(halves[1])];
+}
+
+/** Compile one piece, halving and retrying if the plan still overshot. */
+async function compilePiece(ctx: SplitCtx, part: any, out: Uint8Array[], continued: boolean): Promise<void> {
   const book = { ...ctx.book, parts: [part], tagIndex: [], unplacedNotes: [] } as DocBook;
   const pdf = await runChunk({ book, mode: "part", continued }, ctx.mainTypst, ctx.fonts);
   if (pdf) {
@@ -194,8 +246,17 @@ async function compilePart(ctx: SplitCtx, part: any, out: Uint8Array[], continue
     throw new Error(`"${part.title}" is too large for this browser to lay out, and can't be divided any further.`);
   }
   ctx.onProgress?.(`${part.title} (dividing further)`);
-  await compilePart(ctx, halves[0], out, continued);
-  await compilePart(ctx, halves[1], out, true);
+  await compilePiece(ctx, halves[0], out, continued);
+  await compilePiece(ctx, halves[1], out, true);
+}
+
+/** Compile a whole Part, as however many pieces it needs. */
+async function compilePart(ctx: SplitCtx, part: any, out: Uint8Array[]): Promise<void> {
+  const pieces = planPieces(part);
+  for (const [i, piece] of pieces.entries()) {
+    ctx.onProgress?.(pieces.length > 1 ? `${part.title} (${i + 1} of ${pieces.length})` : part.title);
+    await compilePiece(ctx, piece, out, i > 0);
+  }
 }
 
 /**
@@ -203,14 +264,20 @@ async function compilePart(ctx: SplitCtx, part: any, out: Uint8Array[], continue
  * natively clickable), otherwise piece by piece, stitched back into a single
  * file with bookmarks and cross-references intact.
  *
- * There's no size threshold to guess at -- whether a document fits isn't
- * reliably predicted by verse count, so trying is more honest than
- * estimating, and a failed attempt costs nothing but its Worker.
+ * One pass is attempted only for a book that would fit in a single piece
+ * anyway. A doomed attempt is not free: on a real book it spends ~2.5 minutes
+ * to arrive at a failure its size already predicted, and that grows with the
+ * book. Below the cap the attempt is quick and the payoff real -- the tag
+ * index and "The Parts" list stay natively clickable, with no merge at all.
  */
 export async function renderBookAuto(opts: SplitCtx): Promise<{ pdf: Uint8Array; split: boolean }> {
-  opts.onProgress?.("the whole book, in one pass");
-  const onePass = await runChunk({ book: opts.book, mode: "full" }, opts.mainTypst, opts.fonts);
-  if (onePass) return { pdf: onePass, split: false };
+  const totalUnits = opts.book.parts.reduce((n, p) => n + countUnits(p), 0);
+
+  if (totalUnits <= PIECE_UNIT_CAP) {
+    opts.onProgress?.("the whole book, in one pass");
+    const onePass = await runChunk({ book: opts.book, mode: "full" }, opts.mainTypst, opts.fonts);
+    if (onePass) return { pdf: onePass, split: false };
+  }
 
   opts.onProgress?.("too large for one pass — compiling it in pieces instead");
 
@@ -228,7 +295,6 @@ export async function renderBookAuto(opts: SplitCtx): Promise<{ pdf: Uint8Array;
 
   const partPdfs: Uint8Array[] = [];
   for (const part of opts.book.parts) {
-    opts.onProgress?.(part.title);
     await compilePart(opts, part, partPdfs);
   }
 
