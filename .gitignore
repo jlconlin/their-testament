@@ -13,6 +13,12 @@ data/cache/
 secrets/
 *.token
 
+# Secrets. This repo is public: the Turnstile *site* key is safe in the HTML,
+# the *secret* key never leaves the Cloudflare dashboard. .dev.vars is
+# Cloudflare's local-secrets file and must never be committed.
+.dev.vars
+.dev.vars.*
+
 # Web — local test scaffolding (but NOT _headers / _redirects, which deploy)
 web/_*.html
 
