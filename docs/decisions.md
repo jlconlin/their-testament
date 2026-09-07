@@ -850,14 +850,16 @@ when it is actually finished.
   annotations can be obtained some other way. An official bulk export, if one
   exists, would reshape acquisition more than any amount of onboarding polish,
   and would make the bookmarklet the fallback rather than the front door.
-- **M11 — Scale verification: not started.** Two things have never been
-  exercised at full size in a real browser on the live site: a complete
-  ~1,630-document fetch (24 were tested live, the rest extrapolated — real
-  runs may hit 429s, which is what the backoff exists for), and a full split
-  compile with every piece plus the merge (verified in Node with a process per
-  piece standing in for terminated Workers, and the Worker path verified
-  separately on a small book, but never both together at corpus size).
-  Jeremy's own export is the natural test for both.
+- **M11 — Scale verification: essentially met (2026-09-06).** Jeremy generated
+  his own book from the live site: 1,673 pages, the full ~1,630-document fetch
+  and a split compile with bisection and merge, all in a real browser. Both
+  unknowns are closed, and the run earned its keep — it exposed that a divided
+  Part lost its bookmarks and half its contents, which no synthetic test had
+  caught. The tuning note below also proved right: General Conference bisected
+  in Chrome at a size that compiled fine in Node, so `PIECE_UNIT_CAP` is
+  optimistic there. Bisection absorbed it, exactly as designed.
+  **Still owed:** one more run now that highlight offsets have moved, to
+  confirm the corrected marks at full scale.
 
 **Tuning note for M11:** the piece-size numbers were measured in Node, with a
 process per piece standing in for a terminated Worker. Chrome gives wasm a
