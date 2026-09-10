@@ -60,7 +60,8 @@ export type DiagCategory =
   | "note-no-anchor"     // annotation has a note/tags but no highlight to anchor it
   | "chapter-note"       // highlight was on the chapter heading/summary -- kept at chapter level
   | "heading-highlight"  // highlight sat on a heading/summary with no note -- nothing to mark
-  | "note-parse-empty";  // note had content but parsed to nothing
+  | "note-parse-empty"   // note had content but parsed to nothing
+  | "source-unavailable"; // the document itself is no longer published
 
 export interface Diag {
   annotationId: string;

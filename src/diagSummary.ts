@@ -6,7 +6,11 @@ import type { Diag, DiagCategory } from "./units.ts";
 export type DiagLevel = "clean" | "warning" | "failed";
 
 export const FAIL_CATEGORIES: DiagCategory[] = ["pid-no-match", "empty-span", "note-no-anchor", "note-parse-empty"];
-export const WARN_CATEGORIES: DiagCategory[] = ["whole-unit-fallback"];
+// A retired manual or a withdrawn article is not a defect in this program and
+// there is nothing a reader can do about it -- the page is simply no longer
+// published. It is a warning, not a failure, and any note written on it is
+// still kept (in Miscellaneous), so nothing of the reader's own is lost.
+export const WARN_CATEGORIES: DiagCategory[] = ["whole-unit-fallback", "source-unavailable"];
 // "chapter-note" and "heading-highlight" are outcomes, not problems: the first
 // places a note at the head of its chapter, the second is a highlight on a
 // heading where there is no verse to mark. Neither loses anything, so neither

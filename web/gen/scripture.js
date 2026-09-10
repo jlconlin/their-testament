@@ -10,9 +10,45 @@ export const SCRIPTURE_PARTS = [
     { key: "bofm", title: "Book of Mormon", collections: ["bofm"], order: 3 },
     { key: "dc", title: "Doctrine and Covenants", collections: ["dc-testament"], order: 4 },
     { key: "pgp", title: "Pearl of Great Price", collections: ["pgp"], order: 5 },
-    // stragglers land here so nothing is silently dropped
-    { key: "other-scripture", title: "Other Scripture", collections: ["jst", "bd", "gs"], order: 6 },
+    // The JST is scripture; study aids are not, so they get their own Part.
+    { key: "other-scripture", title: "Other Scripture", collections: ["jst"], order: 6 },
 ];
+/** Where the two non-scripture Parts sit in the book. */
+export const HELPS_PART = { key: "helps", title: "Scripture Helps", order: 7 };
+export const MAGAZINES_PART = { key: "magazines", title: "Magazines", order: 92 };
+export const MANUALS_PART = { key: "manuals", title: "Manuals and Guides", order: 93 };
+/** Study aids: topical entries with no chapter numbers. */
+export const HELP_COLLECTIONS = {
+    tg: "Topical Guide",
+    bd: "Bible Dictionary",
+    index: "Index to the Triple Combination",
+    "triple-index": "Index to the Triple Combination",
+    gs: "Guide to the Scriptures",
+};
+export const HELP_ORDER = [...Object.keys(HELP_COLLECTIONS), "proclamations"];
+/**
+ * Documents filed under /scriptures that are neither a chapter nor a study
+ * aid. They are short, they are marked often, and without an entry here every
+ * mark on them is dropped -- so they get one section of their own.
+ */
+export const PROCLAMATION_COLLECTIONS = new Set([
+    "the-family-a-proclamation-to-the-world",
+    "the-restoration-of-the-fulness-of-the-gospel-of-jesus-christ",
+]);
+/**
+ * Periodicals, keyed by the first URI segment. They share General Conference's
+ * shape -- /<pub>/YYYY/MM/<slug> -- so they group the same way: decade, then
+ * issue, then article.
+ */
+export const MAGAZINES = {
+    ensign: "Ensign",
+    liahona: "Liahona",
+    "new-era": "New Era",
+    "ya-weekly": "YA Weekly",
+    ftsoy: "For the Strength of Youth",
+    friend: "Friend",
+};
+export const MAGAZINE_ORDER = Object.keys(MAGAZINES);
 // Ordered book slugs per collection. Front-matter / non-chapter slugs are omitted
 // on purpose (they show up as "uncategorised" in the validation report).
 const BOOK_ORDER = {
@@ -21,7 +57,10 @@ const BOOK_ORDER = {
     bofm: "1-ne 2-ne jacob enos jarom omni w-of-m mosiah alma hel 3-ne 4-ne morm ether moro".split(" "),
     "dc-testament": ["dc", "od"],
     pgp: ["moses", "abr", "js-m", "js-h", "a-of-f"],
-    jst: ["jst-gen", "jst-ex", "jst-matt", "jst-mark", "jst-luke", "jst-john"],
+    // Every book with a JST selection, in the order the appendix lists them.
+    // A short list here is not cosmetic: a slug that is missing classifies as
+    // "unknown book" and the marks on it are dropped from the book entirely.
+    jst: "jst-gen jst-ex jst-deut jst-1-sam jst-2-sam jst-1-chr jst-2-chr jst-ps jst-isa jst-jer jst-amos jst-matt jst-mark jst-luke jst-john jst-acts jst-rom jst-1-cor jst-2-cor jst-gal jst-eph jst-col jst-1-thes jst-2-thes jst-1-tim jst-heb jst-james jst-1-pet jst-2-pet jst-1-jn jst-rev".split(" "),
 };
 const NAME_OVERRIDE = {
     "ot/ps": "Psalms",
@@ -75,11 +114,35 @@ const ABBREV = {
     "jst/jst-gen": "JST Gen.", "jst/jst-ex": "JST Ex.", "jst/jst-matt": "JST Matt.",
     "jst/jst-mark": "JST Mark", "jst/jst-luke": "JST Luke", "jst/jst-john": "JST John",
 };
+// "jst-1-pet" abbreviates as "JST 1 Pet." -- derive them rather than keeping a
+// second 31-entry table in sync with the first.
+for (const slug of BOOK_ORDER.jst ?? []) {
+    const base = slug.replace(/^jst-/, "");
+    const src = ABBREV[`ot/${base}`] ?? ABBREV[`nt/${base}`];
+    if (src)
+        ABBREV[`jst/${slug}`] = `JST ${src}`;
+}
 export function abbrev(collection, slug) {
     return ABBREV[`${collection}/${slug}`] ?? slug;
 }
 const CHAP_RE = /^\/scriptures\/([^/]+)\/([^/]+)\/(\d+)(?:[.?#]|$)/;
 const GC_RE = /^\/general-conference\/(\d{4})\/(\d{2})\/([a-z0-9-]+)(?:[.?#]|$)/;
+// /scriptures/tg/faith  ·  /scriptures/gs/living-water.p3
+const HELP_RE = /^\/scriptures\/(tg|bd|gs|index|triple-index)\/([a-z0-9-]+)(?:[.?#]|$)/;
+const PROC_RE = /^\/scriptures\/([a-z0-9-]+)\/([a-z0-9-]+)(?:[.?#]|$)/;
+// /ensign/2008/11/the-healing-power-of-forgiveness, but an issue may also file
+// an article under a section: /ensign/2016/05/sunday-morning-session/choices,
+// /liahona/2022/02/digital-only/…, /liahona/2023/10/eur-eng-local-pages/….
+// Those sections are not worth an outline level, so the whole path after the
+// month is treated as the article's slug.
+// Slugs occasionally carry an underscore ("03_trust-god-and-let-him-prevail").
+const MAG_RE = /^\/(ensign|liahona|new-era|friend|ya-weekly|ftsoy)\/(\d{4})\/(\d{2})\/([a-z0-9_-]+(?:\/[a-z0-9_-]+)*)(?:[.?#]|$)/;
+// /manual/teachings-george-albert-smith/chapter-8 -- the document path may be
+// more than one segment (/manual/<m>/the-book-of-exodus/exodus-14-15).
+const MANUAL_RE = /^\/manual\/([a-z0-9_-]+)\/([a-z0-9_-]+(?:\/[a-z0-9_-]+)*)(?:[.?#]|$)/;
+// /broadcasts/article/christmas-devotional/2011/12/because-he-came -- the
+// series path is one or more segments, so it is matched loosely.
+const BROADCAST_RE = /^\/broadcasts\/([a-z0-9_-]+(?:\/[a-z0-9_-]+)*)\/(\d{4})\/(\d{2})\/([a-z0-9_-]+)(?:[.?#]|$)/;
 export function classify(uri) {
     if (!uri)
         return { scope: "uncategorised", reason: "no uri", uri: "" };
@@ -87,6 +150,50 @@ export function classify(uri) {
     const gc = uri.match(GC_RE);
     if (gc) {
         return { scope: "gc", year: gc[1], month: gc[2], slug: gc[3], docUri: `/general-conference/${gc[1]}/${gc[2]}/${gc[3]}` };
+    }
+    const proc = uri.match(PROC_RE);
+    if (proc && PROCLAMATION_COLLECTIONS.has(proc[1])) {
+        return {
+            scope: "help", collection: "proclamations", collectionTitle: "Proclamations",
+            entry: proc[2], docUri: `/scriptures/${proc[1]}/${proc[2]}`,
+        };
+    }
+    const help = uri.match(HELP_RE);
+    if (help) {
+        const collection = help[1];
+        return {
+            scope: "help", collection, collectionTitle: HELP_COLLECTIONS[collection] ?? collection,
+            entry: help[2], docUri: `/scriptures/${collection}/${help[2]}`,
+        };
+    }
+    const mag = uri.match(MAG_RE);
+    if (mag) {
+        const pub = mag[1];
+        return {
+            scope: "magazine", pub, pubTitle: MAGAZINES[pub] ?? pub,
+            year: mag[2], month: mag[3], slug: mag[4],
+            docUri: `/${pub}/${mag[2]}/${mag[3]}/${mag[4]}`,
+        };
+    }
+    const bc = uri.match(BROADCAST_RE);
+    if (bc) {
+        // the series stands in for a publication name; "article" is a routing
+        // segment, not part of the series ("article/christmas-devotional").
+        const series = bc[1];
+        const pubTitle = series.split("/").at(-1)
+            .replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        return {
+            scope: "magazine", pub: `broadcasts/${series}`, pubTitle,
+            year: bc[2], month: bc[3], slug: bc[4],
+            docUri: `/broadcasts/${series}/${bc[2]}/${bc[3]}/${bc[4]}`,
+        };
+    }
+    const man = uri.match(MANUAL_RE);
+    if (man) {
+        return {
+            scope: "manual", manual: man[1], docPath: man[2],
+            docUri: `/manual/${man[1]}/${man[2]}`,
+        };
     }
     const ch = uri.match(CHAP_RE);
     if (ch) {
@@ -106,6 +213,11 @@ export function classify(uri) {
     if (top === "scriptures")
         return { scope: "uncategorised", reason: "scripture non-chapter (front matter / anchor)", uri };
     return { scope: "out", reason: `source "${top}" not in current scope`, top };
+}
+/** "a-parents-guide" -> "A Parents Guide" -- a last resort for a missing index. */
+export function titleFromSlug(slug) {
+    const small = new Set(["a", "an", "and", "as", "at", "for", "from", "in", "of", "on", "or", "the", "to", "with"]);
+    return slug.split("-").map((w, i) => i > 0 && small.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
 }
 export function bookName(collection, slug, fetchedTitle) {
     const key = `${collection}/${slug}`;

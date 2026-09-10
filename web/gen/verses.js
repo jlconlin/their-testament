@@ -64,8 +64,10 @@ export function parseVerses(page, chapter) {
 export function parseHeadingUnits(page) {
     const root = parse(page.content.body, { blockTextElements: {} });
     const out = [];
+    // "header p" covers a magazine byline and its event line ("General
+    // Conference, October 2008"), which are addressable and do get highlighted.
     for (const sel of ["p.study-intro", "p.study-summary", "p.studyIntro", "p.intro", "p.subtitle", "p.kicker",
-        "#study_intro1", "#study_summary1", ".study-intro", ".study-summary"]) {
+        "#study_intro1", "#study_summary1", ".study-intro", ".study-summary", "header p"]) {
         for (const el of root.querySelectorAll(sel)) {
             const vid = el.getAttribute("id") ?? "";
             const aid = el.getAttribute("data-aid") ?? "";

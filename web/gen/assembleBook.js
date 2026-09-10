@@ -1,12 +1,14 @@
 // Given a full annotation export, build the complete DocBook -- every marked
-// book, every marked GC conference, every notebook. Shared by the Node
+// book, conference, study-help entry, magazine article, manual lesson and
+// notebook. Shared by the Node
 // full-corpus validator (scripts/validate.ts) and the browser generator (M6);
 // extracted from validate.ts's steps 1-4 so both have exactly one
 // implementation of "how annotations become a book."
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex } from "./assemble.js";
 import { assembleConferencePart } from "./assembleGC.js";
 import { assembleNotebooksPart } from "./notebooks.js";
-import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "./scripture.js";
+import { assembleCollectionPart } from "./assembleCollection.js";
+import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev, titleFromSlug, HELPS_PART, MAGAZINES_PART, MANUALS_PART, HELP_COLLECTIONS, HELP_ORDER, MAGAZINE_ORDER, } from "./scripture.js";
 export async function assembleBook(annotations, content, opts = {}) {
     // ---- 1. classify every annotation --------------------------------------
     const scope = {
@@ -14,11 +16,36 @@ export async function assembleBook(annotations, content, opts = {}) {
         gc: [],
         uncategorised: [],
     };
+    // section key -> issue key (or "" when the section is flat) -> doc URIs
+    const collections = {
+        helps: new Map(),
+        magazines: new Map(),
+        manuals: new Map(),
+    };
+    const sectionLabel = new Map(); // section key -> display label
+    const noteDoc = (where, section, issue, docUri) => {
+        const sec = where.get(section) ?? new Map();
+        const iss = sec.get(issue) ?? new Set();
+        iss.add(docUri);
+        sec.set(issue, iss);
+        where.set(section, sec);
+    };
     const bookMeta = new Map();
+    const outBySource = new Map();
+    let outHighlights = 0;
+    let outWithContent = 0;
     for (const a of annotations) {
         if (a.type === "journal" && !(a.highlights ?? []).length)
             continue; // notebooks handled separately, from all annotations
         let placed = false;
+        for (const h of a.highlights ?? []) {
+            const c = classify(h.uri);
+            if (c.scope !== "out" && c.scope !== "uncategorised")
+                continue;
+            outHighlights++;
+            const top = (h.uri ?? "").replace(/^\//, "").split("/")[0] || "(unknown)";
+            outBySource.set(top, (outBySource.get(top) ?? 0) + 1);
+        }
         for (const h of a.highlights ?? []) {
             const c = classify(h.uri);
             if (c.scope === "scripture") {
@@ -33,9 +60,29 @@ export async function assembleBook(annotations, content, opts = {}) {
                 placed = true;
                 break;
             }
+            if (c.scope === "help") {
+                sectionLabel.set(c.collection, c.collectionTitle);
+                noteDoc(collections.helps, c.collection, "", c.docUri);
+                placed = true;
+                break;
+            }
+            if (c.scope === "magazine") {
+                sectionLabel.set(c.pub, c.pubTitle);
+                noteDoc(collections.magazines, c.pub, `${c.year}-${c.month}`, c.docUri);
+                placed = true;
+                break;
+            }
+            if (c.scope === "manual") {
+                noteDoc(collections.manuals, c.manual, "", c.docUri);
+                placed = true;
+                break;
+            }
         }
         if (placed)
             continue;
+        // nothing on this annotation landed in the book at all
+        if ((a.highlights ?? []).length && (a.note?.content || a.note?.title || a.tags.length))
+            outWithContent++;
         const c0 = classify((a.highlights ?? [])[0]?.uri);
         if (c0.scope === "uncategorised") {
             scope.uncategorised.push({ annotation: a, reason: c0.reason, uri: c0.uri });
@@ -86,6 +133,69 @@ export async function assembleBook(annotations, content, opts = {}) {
         allDiags.push(...gc.diags);
         allUnplacedNotes.push(...gc.unplacedNotes);
     }
+    // ---- 3c. study helps, magazines, manuals -------------------------------
+    // All three are articles with numbered paragraphs, so they share one
+    // assembler; only the grouping differs (see assembleCollection.ts).
+    const helpSections = [...collections.helps]
+        .sort((a, b) => HELP_ORDER.indexOf(a[0]) - HELP_ORDER.indexOf(b[0]))
+        .map(([key, issues]) => ({
+        key,
+        label: key === "proclamations" ? "Proclamations" : HELP_COLLECTIONS[key] ?? key,
+        docs: [...(issues.get("") ?? [])].sort().map((uri) => ({
+            slug: uri.split("/").pop(),
+            uri,
+            refPrefix: abbrevHelp(key),
+        })),
+    }));
+    const magSections = [...collections.magazines]
+        .sort((a, b) => magOrder(a[0]) - magOrder(b[0]) || a[0].localeCompare(b[0]))
+        .map(([key, byIssue]) => ({
+        key,
+        label: sectionLabel.get(key) ?? key,
+        issues: [...byIssue].sort((a, b) => a[0].localeCompare(b[0])).map(([ikey, uris]) => ({
+            key: ikey,
+            label: issueLabel(ikey),
+            docs: [...uris].sort().map((uri) => ({
+                // an article filed under an issue section has a two-segment slug;
+                // flatten it so the doc key stays unique and stays one token
+                slug: uri.split("/").slice(4).join("-"),
+                uri,
+                refPrefix: `${sectionLabel.get(key) ?? key} ${issueLabel(ikey)}`,
+            })),
+        })),
+    }));
+    const manualSections = [];
+    for (const [slug, byIssue] of collections.manuals) {
+        const index = await content.tryGet(`/manual/${slug}`);
+        const label = manualTitle(index) ?? titleFromSlug(slug);
+        const uris = [...(byIssue.get("") ?? [])];
+        manualSections.push({
+            key: slug,
+            label,
+            docs: orderByManifest(uris, index, `/manual/${slug}/`).map((uri) => ({
+                slug: uri.slice(`/manual/${slug}/`.length).replace(/\//g, "-"),
+                uri,
+                refPrefix: label,
+                titleFrom: "meta",
+            })),
+        });
+    }
+    manualSections.sort((a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }));
+    for (const [defn, sections] of [
+        [HELPS_PART, helpSections],
+        [MAGAZINES_PART, magSections],
+        [MANUALS_PART, manualSections],
+    ]) {
+        if (!sections.length)
+            continue;
+        const res = await assembleCollectionPart(annotations, sections, content, defn.key, defn.title);
+        if (res.part.kind === "collection" && res.part.sections.length) {
+            parts.push(res.part);
+            allTags.push(...res.tagEntries);
+            allDiags.push(...res.diags);
+            allUnplacedNotes.push(...res.unplacedNotes);
+        }
+    }
     // ---- 3b. notebooks ----------------------------------------------------
     const nb = await assembleNotebooksPart(annotations, content);
     if (nb.part.kind === "notebooks" && nb.part.notebooks.length) {
@@ -93,7 +203,13 @@ export async function assembleBook(annotations, content, opts = {}) {
         allDiags.push(...nb.diags);
     }
     // ---- 4. build the doc-model ------------------------------------------------
+    const COLLECTION_ORDER = {
+        [HELPS_PART.key]: HELPS_PART.order,
+        [MAGAZINES_PART.key]: MAGAZINES_PART.order,
+        [MANUALS_PART.key]: MANUALS_PART.order,
+    };
     const partOrder = (p) => SCRIPTURE_PARTS.find((sp) => sp.key === p.key)?.order ??
+        COLLECTION_ORDER[p.key] ??
         (p.kind === "gc" ? 90 : p.kind === "notebooks" ? 95 : 99);
     parts.sort((a, b) => partOrder(a) - partOrder(b));
     const dates = annotations.map((a) => a.created).filter(Boolean).sort();
@@ -123,5 +239,60 @@ export async function assembleBook(annotations, content, opts = {}) {
             topTags: [...tagCount.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
         },
     };
-    return { book, diags: allDiags, uncategorised: scope.uncategorised };
+    return {
+        book,
+        diags: allDiags,
+        uncategorised: scope.uncategorised,
+        outOfScope: {
+            highlights: outHighlights,
+            annotationsWithContent: outWithContent,
+            bySource: [...outBySource].sort((x, y) => y[1] - x[1]),
+        },
+    };
+}
+// ---- collection helpers ----------------------------------------------------
+const MONTH_NAME = ["", "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"];
+/** "1971-11" -> "November 1971". */
+function issueLabel(key) {
+    const [y, m] = key.split("-");
+    return `${MONTH_NAME[Number(m)] ?? m} ${y}`;
+}
+const HELP_ABBREV = {
+    tg: "TG", bd: "BD", gs: "GS", index: "Index", "triple-index": "Index",
+    proclamations: "Proclamation",
+};
+function abbrevHelp(key) {
+    return HELP_ABBREV[key] ?? key;
+}
+/** Named magazines first, in MAGAZINE_ORDER; broadcasts and anything else after. */
+function magOrder(key) {
+    const i = MAGAZINE_ORDER.indexOf(key);
+    return i >= 0 ? i : MAGAZINE_ORDER.length;
+}
+/** A manual's own title, from its index page. */
+function manualTitle(index) {
+    if (!index)
+        return null;
+    const h1 = index.content.body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+    const text = h1 ? h1[1].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() : "";
+    return text || index.meta.title || null;
+}
+/**
+ * Put a manual's documents in the manual's own order.
+ *
+ * The index page lists them; without it (a few manuals 404 there) the URIs are
+ * sorted, which is right for the numbered ones and harmless for the rest.
+ */
+function orderByManifest(uris, index, prefix) {
+    if (!index)
+        return [...uris].sort();
+    const listed = [];
+    const re = new RegExp(`/study(${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[a-z0-9-]+(?:/[a-z0-9-]+)*)\\?`, "g");
+    for (const m of index.content.body.matchAll(re)) {
+        if (!listed.includes(m[1]))
+            listed.push(m[1]);
+    }
+    const rank = new Map(listed.map((u, i) => [u, i]));
+    return [...uris].sort((a, b) => (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) || a.localeCompare(b));
 }

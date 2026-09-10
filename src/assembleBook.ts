@@ -1,12 +1,18 @@
 // Given a full annotation export, build the complete DocBook -- every marked
-// book, every marked GC conference, every notebook. Shared by the Node
+// book, conference, study-help entry, magazine article, manual lesson and
+// notebook. Shared by the Node
 // full-corpus validator (scripts/validate.ts) and the browser generator (M6);
 // extracted from validate.ts's steps 1-4 so both have exactly one
 // implementation of "how annotations become a book."
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex, type TagEntry, type BookResult } from "./assemble.ts";
 import { assembleConferencePart } from "./assembleGC.ts";
 import { assembleNotebooksPart } from "./notebooks.ts";
-import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev } from "./scripture.ts";
+import { assembleCollectionPart, type SectionSpec, type DocSpec, type IssueSpec } from "./assembleCollection.ts";
+import {
+  classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev, titleFromSlug,
+  HELPS_PART, MAGAZINES_PART, MANUALS_PART, HELP_COLLECTIONS, HELP_ORDER,
+  MAGAZINE_ORDER,
+} from "./scripture.ts";
 import type { Annotation, ContentSource, DocBook, DocPart } from "./types.ts";
 import type { Diag, UnplacedNote } from "./units.ts";
 
@@ -15,6 +21,24 @@ export interface AssembleBookResult {
   diags: Diag[];
   /** Annotations whose highlights didn't classify as scripture, GC, or a notebook entry. */
   uncategorised: { annotation: Annotation; reason: string; uri: string }[];
+  /**
+   * Marks on sources this book still doesn't cover — the youth curriculum,
+   * videos, Book of Mormon front matter.
+   *
+   * These never reach the diagnostics, because they are filtered out before
+   * assembly begins. That made them invisible: a second reader's export turned
+   * out to be 10% magazine and manual highlights, and the completeness report
+   * cheerfully told them everything they marked was in their book. Those two
+   * categories are now Parts of their own (M12); this count is what remains,
+   * and it is reported rather than hidden.
+   */
+  outOfScope: {
+    highlights: number;
+    /** annotations with a written note or tags that landed nowhere */
+    annotationsWithContent: number;
+    /** "ensign" -> 534, "manual" -> 278, … , most-marked first */
+    bySource: [string, number][];
+  };
 }
 
 export async function assembleBook(
@@ -28,11 +52,39 @@ export async function assembleBook(
     gc: [] as Annotation[],
     uncategorised: [] as { annotation: Annotation; reason: string; uri: string }[],
   };
+  // section key -> issue key (or "" when the section is flat) -> doc URIs
+  const collections = {
+    helps: new Map<string, Map<string, Set<string>>>(),
+    magazines: new Map<string, Map<string, Set<string>>>(),
+    manuals: new Map<string, Map<string, Set<string>>>(),
+  };
+  const sectionLabel = new Map<string, string>(); // section key -> display label
+  const noteDoc = (
+    where: Map<string, Map<string, Set<string>>>,
+    section: string, issue: string, docUri: string,
+  ) => {
+    const sec = where.get(section) ?? new Map<string, Set<string>>();
+    const iss = sec.get(issue) ?? new Set<string>();
+    iss.add(docUri);
+    sec.set(issue, iss);
+    where.set(section, sec);
+  };
   const bookMeta = new Map<string, { collection: string; slug: string; order: number; partKey: string; base: string }>();
+
+  const outBySource = new Map<string, number>();
+  let outHighlights = 0;
+  let outWithContent = 0;
 
   for (const a of annotations) {
     if (a.type === "journal" && !(a.highlights ?? []).length) continue; // notebooks handled separately, from all annotations
     let placed = false;
+    for (const h of a.highlights ?? []) {
+      const c = classify(h.uri);
+      if (c.scope !== "out" && c.scope !== "uncategorised") continue;
+      outHighlights++;
+      const top = (h.uri ?? "").replace(/^\//, "").split("/")[0] || "(unknown)";
+      outBySource.set(top, (outBySource.get(top) ?? 0) + 1);
+    }
     for (const h of a.highlights ?? []) {
       const c = classify(h.uri);
       if (c.scope === "scripture") {
@@ -43,8 +95,24 @@ export async function assembleBook(
         break;
       }
       if (c.scope === "gc") { scope.gc.push(a); placed = true; break; }
+      if (c.scope === "help") {
+        sectionLabel.set(c.collection, c.collectionTitle);
+        noteDoc(collections.helps, c.collection, "", c.docUri);
+        placed = true; break;
+      }
+      if (c.scope === "magazine") {
+        sectionLabel.set(c.pub, c.pubTitle);
+        noteDoc(collections.magazines, c.pub, `${c.year}-${c.month}`, c.docUri);
+        placed = true; break;
+      }
+      if (c.scope === "manual") {
+        noteDoc(collections.manuals, c.manual, "", c.docUri);
+        placed = true; break;
+      }
     }
     if (placed) continue;
+    // nothing on this annotation landed in the book at all
+    if ((a.highlights ?? []).length && (a.note?.content || a.note?.title || a.tags.length)) outWithContent++;
     const c0 = classify((a.highlights ?? [])[0]?.uri);
     if (c0.scope === "uncategorised") {
       scope.uncategorised.push({ annotation: a, reason: c0.reason, uri: c0.uri });
@@ -99,6 +167,72 @@ export async function assembleBook(
     allUnplacedNotes.push(...gc.unplacedNotes);
   }
 
+  // ---- 3c. study helps, magazines, manuals -------------------------------
+  // All three are articles with numbered paragraphs, so they share one
+  // assembler; only the grouping differs (see assembleCollection.ts).
+  const helpSections: SectionSpec[] = [...collections.helps]
+    .sort((a, b) => HELP_ORDER.indexOf(a[0]) - HELP_ORDER.indexOf(b[0]))
+    .map(([key, issues]) => ({
+      key,
+      label: key === "proclamations" ? "Proclamations" : HELP_COLLECTIONS[key] ?? key,
+      docs: [...(issues.get("") ?? [])].sort().map((uri) => ({
+        slug: uri.split("/").pop()!,
+        uri,
+        refPrefix: abbrevHelp(key),
+      })),
+    }));
+
+  const magSections: SectionSpec[] = [...collections.magazines]
+    .sort((a, b) => magOrder(a[0]) - magOrder(b[0]) || a[0].localeCompare(b[0]))
+    .map(([key, byIssue]) => ({
+      key,
+      label: sectionLabel.get(key) ?? key,
+      issues: [...byIssue].sort((a, b) => a[0].localeCompare(b[0])).map(([ikey, uris]): IssueSpec => ({
+        key: ikey,
+        label: issueLabel(ikey),
+        docs: [...uris].sort().map((uri) => ({
+          // an article filed under an issue section has a two-segment slug;
+          // flatten it so the doc key stays unique and stays one token
+          slug: uri.split("/").slice(4).join("-"),
+          uri,
+          refPrefix: `${sectionLabel.get(key) ?? key} ${issueLabel(ikey)}`,
+        })),
+      })),
+    }));
+
+  const manualSections: SectionSpec[] = [];
+  for (const [slug, byIssue] of collections.manuals) {
+    const index = await content.tryGet(`/manual/${slug}`);
+    const label = manualTitle(index) ?? titleFromSlug(slug);
+    const uris = [...(byIssue.get("") ?? [])];
+    manualSections.push({
+      key: slug,
+      label,
+      docs: orderByManifest(uris, index, `/manual/${slug}/`).map((uri): DocSpec => ({
+        slug: uri.slice(`/manual/${slug}/`.length).replace(/\//g, "-"),
+        uri,
+        refPrefix: label,
+        titleFrom: "meta",
+      })),
+    });
+  }
+  manualSections.sort((a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }));
+
+  for (const [defn, sections] of [
+    [HELPS_PART, helpSections],
+    [MAGAZINES_PART, magSections],
+    [MANUALS_PART, manualSections],
+  ] as const) {
+    if (!sections.length) continue;
+    const res = await assembleCollectionPart(annotations, sections, content, defn.key, defn.title);
+    if (res.part.kind === "collection" && res.part.sections.length) {
+      parts.push(res.part);
+      allTags.push(...res.tagEntries);
+      allDiags.push(...res.diags);
+      allUnplacedNotes.push(...res.unplacedNotes);
+    }
+  }
+
   // ---- 3b. notebooks ----------------------------------------------------
   const nb = await assembleNotebooksPart(annotations, content);
   if (nb.part.kind === "notebooks" && nb.part.notebooks.length) {
@@ -107,8 +241,14 @@ export async function assembleBook(
   }
 
   // ---- 4. build the doc-model ------------------------------------------------
+  const COLLECTION_ORDER: Record<string, number> = {
+    [HELPS_PART.key]: HELPS_PART.order,
+    [MAGAZINES_PART.key]: MAGAZINES_PART.order,
+    [MANUALS_PART.key]: MANUALS_PART.order,
+  };
   const partOrder = (p: DocPart) =>
     SCRIPTURE_PARTS.find((sp) => sp.key === p.key)?.order ??
+    COLLECTION_ORDER[p.key] ??
     (p.kind === "gc" ? 90 : p.kind === "notebooks" ? 95 : 99);
   parts.sort((a, b) => partOrder(a) - partOrder(b));
 
@@ -139,5 +279,69 @@ export async function assembleBook(
     },
   };
 
-  return { book, diags: allDiags, uncategorised: scope.uncategorised };
+  return {
+    book,
+    diags: allDiags,
+    uncategorised: scope.uncategorised,
+    outOfScope: {
+      highlights: outHighlights,
+      annotationsWithContent: outWithContent,
+      bySource: [...outBySource].sort((x, y) => y[1] - x[1]),
+    },
+  };
+}
+
+// ---- collection helpers ----------------------------------------------------
+
+const MONTH_NAME = ["", "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"];
+
+/** "1971-11" -> "November 1971". */
+function issueLabel(key: string): string {
+  const [y, m] = key.split("-");
+  return `${MONTH_NAME[Number(m)] ?? m} ${y}`;
+}
+
+const HELP_ABBREV: Record<string, string> = {
+  tg: "TG", bd: "BD", gs: "GS", index: "Index", "triple-index": "Index",
+  proclamations: "Proclamation",
+};
+function abbrevHelp(key: string): string {
+  return HELP_ABBREV[key] ?? key;
+}
+
+/** Named magazines first, in MAGAZINE_ORDER; broadcasts and anything else after. */
+function magOrder(key: string): number {
+  const i = MAGAZINE_ORDER.indexOf(key);
+  return i >= 0 ? i : MAGAZINE_ORDER.length;
+}
+
+/** A manual's own title, from its index page. */
+function manualTitle(index: { content: { body: string }; meta: { title: string } } | null): string | null {
+  if (!index) return null;
+  const h1 = index.content.body.match(/<h1[^>]*>([\s\S]*?)<\/h1>/);
+  const text = h1 ? h1[1]!.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim() : "";
+  return text || index.meta.title || null;
+}
+
+/**
+ * Put a manual's documents in the manual's own order.
+ *
+ * The index page lists them; without it (a few manuals 404 there) the URIs are
+ * sorted, which is right for the numbered ones and harmless for the rest.
+ */
+function orderByManifest(
+  uris: string[],
+  index: { content: { body: string } } | null,
+  prefix: string,
+): string[] {
+  if (!index) return [...uris].sort();
+  const listed: string[] = [];
+  const re = new RegExp(`/study(${prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}[a-z0-9-]+(?:/[a-z0-9-]+)*)\\?`, "g");
+  for (const m of index.content.body.matchAll(re)) {
+    if (!listed.includes(m[1]!)) listed.push(m[1]!);
+  }
+  const rank = new Map(listed.map((u, i) => [u, i]));
+  return [...uris].sort((a, b) =>
+    (rank.get(a) ?? Infinity) - (rank.get(b) ?? Infinity) || a.localeCompare(b));
 }

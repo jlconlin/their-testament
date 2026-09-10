@@ -19,21 +19,25 @@ import type { Annotation } from "./types.ts";
  */
 export function planContentUris(annotations: Annotation[]): string[] {
   const uris = new Set<string>();
-  const conferences = new Set<string>();
+  const indexes = new Set<string>();
 
   for (const a of annotations) {
     for (const h of a.highlights ?? []) {
       const c = classify(h.uri);
-      if (c.scope === "scripture") uris.add(c.docUri);
-      else if (c.scope === "gc") {
+      if (c.scope === "scripture" || c.scope === "help" || c.scope === "magazine" || c.scope === "manual") {
         uris.add(c.docUri);
-        conferences.add(`/general-conference/${c.year}/${c.month}`);
       }
+      if (c.scope === "gc") {
+        uris.add(c.docUri);
+        indexes.add(`/general-conference/${c.year}/${c.month}`);
+      }
+      // manuals are ordered and titled from the manual's own index page
+      if (c.scope === "manual") indexes.add(`/manual/${c.manual}`);
     }
   }
 
-  // assembleGC also reads each conference's index page, to order the talks
-  for (const c of conferences) uris.add(c);
+  // the index pages, which assembly reads to order and name what is under them
+  for (const c of indexes) uris.add(c);
 
   return [...uris];
 }

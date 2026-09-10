@@ -139,6 +139,12 @@ function countUnits(part) {
     if (part.kind === "gc") {
         return (part.conferences ?? []).reduce((n, c) => n + (c.talks ?? []).reduce((m, t) => m + (t.paragraphs?.length ?? 0), 0), 0);
     }
+    if (part.kind === "collection") {
+        const inDocs = (docs) => docs.reduce((m, t) => m + (t.paragraphs?.length ?? 0), 0);
+        return (part.sections ?? []).reduce((n, sec) => n + (sec.issues
+            ? sec.issues.reduce((m, i) => m + inDocs(i.talks ?? []), 0)
+            : inDocs(sec.entries ?? [])), 0);
+    }
     if (part.kind === "notebooks") {
         return (part.notebooks ?? []).reduce((n, nb) => n + (nb.entries ?? []).reduce((m, e) => m + 1 + (e.verses?.length ?? 0), 0), 0);
     }
@@ -165,6 +171,36 @@ function splitPart(part) {
     if (part.kind === "gc" && part.conferences?.length > 1) {
         const [a, b] = halve(part.conferences);
         return [{ ...part, conferences: a }, { ...part, conferences: b }];
+    }
+    if (part.kind === "collection" && part.sections?.length > 1) {
+        const [a, b] = halve(part.sections);
+        return [{ ...part, sections: a }, { ...part, sections: b }];
+    }
+    // One section left: divide its issues, or its entries.
+    if (part.kind === "collection" && part.sections?.length === 1) {
+        const sec = part.sections[0];
+        if (sec.issues?.length > 1) {
+            const [a, b] = halve(sec.issues);
+            return [
+                { ...part, sections: [{ ...sec, issues: a }] },
+                { ...part, sections: [{ ...sec, issues: b }] },
+            ];
+        }
+        if (sec.issues?.length === 1 && sec.issues[0].talks?.length > 1) {
+            const iss = sec.issues[0];
+            const [a, b] = halve(iss.talks);
+            return [
+                { ...part, sections: [{ ...sec, issues: [{ ...iss, talks: a }] }] },
+                { ...part, sections: [{ ...sec, issues: [{ ...iss, talks: b }] }] },
+            ];
+        }
+        if (sec.entries?.length > 1) {
+            const [a, b] = halve(sec.entries);
+            return [
+                { ...part, sections: [{ ...sec, entries: a }] },
+                { ...part, sections: [{ ...sec, entries: b }] },
+            ];
+        }
     }
     // A single conference that's still too big: divide its talks.
     if (part.kind === "gc" && part.conferences?.length === 1 && part.conferences[0].talks?.length > 1) {

@@ -182,6 +182,24 @@ export interface DocConference {
   talks: DocTalk[];
 }
 
+// Collections: study helps and magazines ------------------------------------
+
+/**
+ * One publication or study aid inside a collection Part.
+ *
+ * Two shapes, because the two things this covers are shaped differently:
+ * magazines are dated, so they nest by decade and issue exactly as General
+ * Conference does; study helps are alphabetical entries with no date at all.
+ */
+export interface DocSection {
+  key: string;                 // "ensign" | "tg"
+  label: string;               // "Ensign" | "Topical Guide"
+  /** dated issues, grouped by decade in the outline (magazines, broadcasts) */
+  issues?: DocConference[];
+  /** undated entries, alphabetical (Topical Guide, Bible Dictionary, …) */
+  entries?: DocTalk[];
+}
+
 export interface TagRef {
   label: string;              // "Job 1:20"  |  "A 15 · Bednar"
   key: string;                // vkey — link target
@@ -214,6 +232,7 @@ export interface DocNotebook {
 export type DocPart =
   | { kind: "scripture"; key: string; title: string; chapters: DocChapter[] }
   | { kind: "gc"; key: string; title: string; conferences: DocConference[] }
+  | { kind: "collection"; key: string; title: string; sections: DocSection[] }
   | { kind: "notebooks"; key: string; title: string; notebooks: DocNotebook[] };
 
 /** A note whose highlight couldn't be matched to a verse/paragraph -- see src/units.ts's UnplacedNote. */

@@ -329,15 +329,16 @@
   set par(justify: false, leading: 0.62em, spacing: 0.75em)
   set text(size: 8pt, fill: notegray)
   block(width: 100%, {
-    [Scripture passages and general conference excerpts reproduced in this
-     volume are the copyrighted property of Intellectual Reserve, Inc., and of
+    [Scripture passages, general conference addresses, magazine articles,
+     study helps, and manual excerpts reproduced in this volume are the
+     copyrighted property of Intellectual Reserve, Inc., and of
      The Church of Jesus Christ of Latter-day Saints. They appear here under
      the terms of use of #link("https://www.churchofjesuschrist.org")[churchofjesuschrist.org],
      which permit material from that site to be downloaded and printed for
      personal, noncommercial use.]
     parbreak()
-    [Only passages that the reader of these scriptures personally marked are
-     included; the scriptures are not reproduced in full.]
+    [Only the passages this reader personally marked are included; none of
+     these works is reproduced in full.]
     parbreak()
     [The notes, highlights, and tags are the work of the person named on the
      title page and remain their own.]
@@ -387,6 +388,11 @@
     } else if part.kind == "gc" {
       let n = part.conferences.map(c => c.talks.len()).sum(default: 0)
       [#part.conferences.len() conferences, #n talks]
+    } else if part.kind == "collection" {
+      let n = part.sections.map(sec => if "issues" in sec and sec.issues != none {
+        sec.issues.map(i => i.talks.len()).sum(default: 0)
+      } else { sec.at("entries", default: ()).len() }).sum(default: 0)
+      [#part.sections.len() source#if part.sections.len() != 1 [s], #n item#if n != 1 [s]]
     } else {
       [#part.notebooks.len() collections]
     }
@@ -485,6 +491,45 @@
       }
     }
   }
+  if part.kind == "collection" {
+    for sec in part.sections {
+      block(above: 0.75em, below: 0.2em,
+        text(font: sans, size: 10pt, weight: "medium", tracking: 0.1em, fill: rgb("#4a4238"))[#sec.label])
+      // an entry line, shared by dated and undated sections
+      let line(key, title, byline, indent) = {
+        let loc = cmOf(key)
+        let p = relPage(loc)
+        block(above: 0.14em, below: 0.14em, pad(left: indent, box(width: 100% - indent, {
+          let body = [#text(size: 8.5pt)[#title]#if byline != none and byline != "" [
+            #text(size: 8pt, fill: notegray)[ · #byline]]]
+          if loc != none { link(loc, body) } else { body }
+          leader
+          if p != none { text(size: 7.5pt, fill: notegray, number-type: "lining")[#p] }
+        })))
+      }
+      if "issues" in sec and sec.issues != none {
+        let curdecade = ""
+        for iss in sec.issues {
+          let dec = decade-of(iss.key)
+          if dec != curdecade {
+            curdecade = dec
+            block(above: 0.4em, below: 0.1em, pad(left: 0.6em,
+              text(font: sans, size: 8.5pt, tracking: 0.08em, fill: rgb("#6b6153"))[#dec]))
+          }
+          block(above: 0.3em, below: 0.1em, pad(left: 1em,
+            text(font: sans, size: 8.5pt, fill: notegray)[#iss.label]))
+          for t in iss.talks {
+            line(part.key + "|" + sec.key + "|" + iss.key + "|" + t.slug, t.title, t.speaker, 1.6em)
+          }
+        }
+      } else {
+        for t in sec.at("entries", default: ()) {
+          line(part.key + "|" + sec.key + "|" + t.slug, t.title, t.speaker, 1em)
+        }
+      }
+    }
+  }
+
   if part.kind == "notebooks" {
     for nb in part.notebooks {
       let loc = cmOf(part.key + "|" + nb.name)
@@ -649,6 +694,46 @@
   }
 }
 
+// One article -- a conference talk, a magazine piece, a study-help entry, a
+// manual lesson. They are the same thing on the page; only what encloses them
+// differs, so the outline level is a parameter.
+#let render-article(tkey, talk, level: 4) = {
+  mdebt.update(0pt)
+  [#metadata(talk.title)<rh>]
+  v(0.34in)
+  block(breakable: false, {
+    heading(level: level)[#talk.title]
+    [#metadata(tkey)<cm>]
+    set par(justify: false)
+    align(center, box(width: gcw, {
+      text(font: sans, size: 13pt, weight: "medium", tracking: 0.01em)[#talk.title]
+      // A Topical Guide entry has no author; don't leave a blank line for one.
+      if talk.speaker != none and talk.speaker != "" {
+        linebreak()
+        v(0.4em)
+        text(font: sans, size: 8.5pt, fill: notegray)[#talk.speaker]
+      }
+      if talk.role != none {
+        linebreak(); text(font: sans, size: 7.5pt, fill: tagcol)[#talk.role]
+      }
+    }))
+    v(0.24in)
+    heading-mark-block(talk.at("headingMarks", default: ()))
+    chapter-note-block(talk.at("chapterNotes", default: ()))
+    if talk.paragraphs.len() > 0 {
+      unit(tkey + "|" + talk.paragraphs.first().ref, talk.paragraphs.first(), kind: "para", cw: gcw)
+    }
+  })
+  for p in talk.paragraphs.slice(1) {
+    unit(tkey + "|" + p.ref, p, kind: "para", cw: gcw)
+  }
+}
+
+// A centered divider line -- a conference, a magazine issue, a publication.
+#let divider-line(label, size: 13pt, tracking: 0.14em) = {
+  align(center, text(font: sans, size: size, weight: "medium", tracking: tracking, fill: rgb("#4a4238"))[#upper(label)])
+}
+
 #let render-gc-part(part) = {
   let curdecade = ""
   for (ci, conf) in part.conferences.enumerate() {
@@ -659,35 +744,39 @@
     if dec != curdecade { curdecade = dec; heading(level: 2)[#dec] }
     heading(level: 3)[#conf.label]
     v(if ci == 0 { 0.10in } else { 0.5in })
-    align(center, text(font: sans, size: 13pt, weight: "medium", tracking: 0.14em, fill: rgb("#4a4238"))[#upper(conf.label)])
+    divider-line(conf.label)
     v(0.3in)
     for talk in conf.talks {
-      let tkey = part.key + "|" + conf.key + "|" + talk.slug
-      mdebt.update(0pt)
-      [#metadata(talk.title)<rh>]
-      v(0.34in)
-      block(breakable: false, {
-        heading(level: 4)[#talk.title]
-        [#metadata(tkey)<cm>]
-        set par(justify: false)
-        align(center, box(width: gcw, {
-          text(font: sans, size: 13pt, weight: "medium", tracking: 0.01em)[#talk.title]
-          linebreak()
-          v(0.4em)
-          text(font: sans, size: 8.5pt, fill: notegray)[#talk.speaker]
-          if talk.role != none {
-            linebreak(); text(font: sans, size: 7.5pt, fill: tagcol)[#talk.role]
-          }
-        }))
-        v(0.24in)
-        heading-mark-block(talk.at("headingMarks", default: ()))
-        chapter-note-block(talk.at("chapterNotes", default: ()))
-        if talk.paragraphs.len() > 0 {
-          unit(tkey + "|" + talk.paragraphs.first().ref, talk.paragraphs.first(), kind: "para", cw: gcw)
+      render-article(part.key + "|" + conf.key + "|" + talk.slug, talk)
+    }
+  }
+}
+
+// Study helps, magazines, manuals. Sections nest one level deeper than a
+// conference does, because a magazine issue only means something under the
+// name of its magazine.
+#let render-collection-part(part) = {
+  for (si, sec) in part.sections.enumerate() {
+    heading(level: 2)[#sec.label]
+    v(if si == 0 { 0.10in } else { 0.6in })
+    divider-line(sec.label, size: 14pt, tracking: 0.18em)
+    v(0.34in)
+    if "issues" in sec and sec.issues != none {
+      let curdecade = ""
+      for iss in sec.issues {
+        let dec = decade-of(iss.key)
+        if dec != curdecade { curdecade = dec; heading(level: 3)[#dec] }
+        heading(level: 4)[#iss.label]
+        v(0.34in)
+        divider-line(iss.label, size: 10.5pt, tracking: 0.2em)
+        v(0.16in)
+        for talk in iss.talks {
+          render-article(part.key + "|" + sec.key + "|" + iss.key + "|" + talk.slug, talk, level: 5)
         }
-      })
-      for p in talk.paragraphs.slice(1) {
-        unit(tkey + "|" + p.ref, p, kind: "para", cw: gcw)
+      }
+    } else {
+      for talk in sec.at("entries", default: ()) {
+        render-article(part.key + "|" + sec.key + "|" + talk.slug, talk, level: 3)
       }
     }
   }
@@ -788,6 +877,7 @@
     if part.kind == "notebooks" { render-notebooks-part(part) }
     else if part.kind == "scripture" { render-scripture-part(part) }
     else if part.kind == "gc" { render-gc-part(part) }
+    else if part.kind == "collection" { render-collection-part(part) }
   }
 }
 

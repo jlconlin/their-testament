@@ -61,7 +61,8 @@ export async function assembleConferencePart(
         for (const a of byTalk.get(slug)!) {
           diags.push({
             annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-            unitRef: `${year}-${month}/${slug}`, category: "pid-no-match", detail: "content fetch failed",
+            unitRef: `${year}-${month}/${slug}`, category: "source-unavailable",
+            detail: "no longer published on churchofjesuschrist.org",
           });
         }
         continue;

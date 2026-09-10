@@ -153,6 +153,7 @@ Adopted principles:
 | **M9** | Operating the live site | Usage is visible; people can reach Jeremy without an address exposed to spam |
 | **M10** | Onboarding the non-technical visitor | Someone non-technical completes an export unaided, or with one clearly-scoped hand-off |
 | **M11** | Scale verification in production | A full real export completes in a real browser on the live site — fetch and split compile both exercised at full size |
+| **M12** | Cover what people actually mark | A second reader's export has no whole *category* of marks missing; what is left out is named in the report |
 
 Settled, not to be reopened without a concrete problem: Typst; TypeScript;
 local-first; canonical organization; original highlighting; margin notes; tag
@@ -1256,3 +1257,85 @@ happened to anything unusual, and keeps every detail row one click away.
 
 "Notes We Couldn't Place" is renamed **Miscellaneous** — with everything now
 placed, that section is empty for the real export and no longer renders.
+
+## M12 — Scripture Helps, magazines, and manuals (built, 2026-09-09)
+
+A second reader ran their own export through the site and generated a book.
+Marks were missing — not a few, a tenth of everything they had ever marked.
+Their export was 10% magazines and manuals, and the completeness report told
+them cheerfully that everything they marked was in their book. That is the
+worst kind of bug in a keepsake: silent, and reassuring while it happens.
+
+Three new Parts, and the scope statement on the home page changed to match:
+
+- **Scripture Helps** (order 7, after Other Scripture) — Topical Guide, Bible
+  Dictionary, Index, Guide to the Scriptures, each an alphabetical list of the
+  entries the reader marked.
+- **Magazines** (after General Conference) — Ensign, Liahona, New Era, YA
+  Weekly, For the Strength of Youth, the Friend, and the broadcast series,
+  each grouped **publication → decade → issue → article**, which is the shape
+  General Conference already had plus one level, and the shape the Church's
+  own archive uses.
+- **Manuals and Guides** (last of the content Parts) — one section per manual,
+  the manual's own title taken from its index page, its documents in the order
+  that index lists them. Sections are alphabetical by title: there is no
+  canonical order across thirty-odd unrelated manuals, and alphabetical is what
+  makes a particular one findable (it also clusters the Come, Follow Me years
+  together, which is how people think of them).
+
+### What that took, and what it exposed
+
+`DocPart` gained a `collection` kind: sections that hold either dated `issues`
+or undated `entries`. Study helps and manuals use the flat form, magazines the
+dated one. One assembler (`assembleCollection.ts`) serves all three, because
+per-document the work is identical to a conference talk — parse, locate,
+typeset — and only the grouping differs.
+
+Two bugs surfaced that were never about the new Parts:
+
+- **The JST book list had six entries; the appendix has thirty-one.** A slug
+  that is missing classifies as "unknown book", so every mark on JST Psalms,
+  Hebrews or 1 Peter was silently dropped. Fixed, and the abbreviations are now
+  derived from the base book rather than kept in a second hand-written table.
+- **`parseTalk` read only `.body-block p`.** A magazine article's pull-quotes
+  and sidebars sit in a sibling `div.resources`, and its opening paragraphs in
+  the `header`, so highlights on them reported a broken pid and vanished. The
+  selector is now "everything addressable outside `header` and `footer`", which
+  produces byte-identical paragraphs for all 816 cached conference talks while
+  picking those up. `nav` is deliberately *not* excluded — a Topical Guide entry
+  keeps its whole body inside one.
+
+### A retired manual is not a failure
+
+525 of one export's marks are on pages the Church no longer publishes — old
+Handbook 2, the earlier doctrinal-mastery materials. They were being reported
+as `pid-no-match`, i.e. as this program failing. New category
+**`source-unavailable`**, counted as a warning: the passage genuinely cannot be
+reproduced, nothing can be done about it, and the note the reader wrote on it
+is now kept in Miscellaneous instead of disappearing with the page.
+
+### Results, on two real exports
+
+|  | first reader | second reader |
+|---|---|---|
+| marks | 26,515 | 5,772 |
+| in a source the book covers | all but 24 | all but 10 |
+| failures | 19 | 4 |
+| unavailable sources (warning) | 525 | 5 |
+
+Out-of-scope marks fell from ~960 to 10 on the second export.
+
+### Still out, and named rather than hidden
+
+- **Book of Mormon front matter** — the title page, the testimonies of the
+  Three and the Eight, Joseph Smith's testimony (13 marks across the two
+  exports). They live at `/scriptures/bofm/<name>` with no chapter number, so
+  they need a document-shaped slot inside a scripture Part. Worth doing.
+- **The youth curriculum** (`/youth/learn/…`) and videos.
+- **The two proclamations are in**, as a Proclamations section under Scripture
+  Helps. That is a judgment call about placement, not about whether to keep
+  them: 18 marks across the two exports, and nowhere better to put them yet.
+
+The copyright page was widened to match: it now names scripture, general
+conference addresses, magazine articles, study helps, and manual excerpts, and
+says that none of these works is reproduced in full.

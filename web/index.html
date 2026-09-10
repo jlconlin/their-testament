@@ -249,6 +249,7 @@
   #report { margin-top:1.4em; font-size:1rem; }
   #make .report-headline { font-family:var(--disp); font-size:1.2rem; margin:0 0 .5em; }
   #make .report-notes { margin:0 0 .8em; padding-left:1.1em; color:var(--ink-soft); font-size:.95rem; }
+  #make .report-outside { color:var(--ink-soft); font-size:.95rem; margin:0 0 .8em; }
   #make .report-notes li { margin:.25em 0; }
   #report summary { cursor:pointer; font-family:var(--sans); font-size:.85rem; color:var(--ink-soft); }
   #report table { border-collapse:collapse; margin-top:.6em; width:100%; }
@@ -488,8 +489,9 @@
           <path d="M5 3h11a2 2 0 0 1 2 2v16l-9-4"/><path d="M5 3v18l4-1.8"/>
         </svg>
         <h3>Ordered like scripture</h3>
-        <p>Old Testament through General Conference, in canonical order, with running
-           heads, a table of contents, and an index of every tag they used.</p>
+        <p>Scripture in canonical order, then general conference, the study helps,
+           the magazines, and the manuals — with running heads, a table of contents,
+           and an index of every tag they used.</p>
       </div>
     </div>
   </div>
@@ -794,6 +796,21 @@ function el(tag, props, children) {
 }
 
 // Plain-language translations -- "pid-no-match" means nothing to a real user.
+// Gospel Library's top-level URI segments, in words a reader would use.
+const SOURCE_LABEL = {
+  "ensign": "the Ensign",
+  "liahona": "the Liahona",
+  "new-era": "the New Era",
+  "friend": "the Friend",
+  "ftsoy": "For the Strength of Youth",
+  "manual": "manuals and lesson material",
+  "broadcasts": "broadcasts",
+  "ya-weekly": "YA Weekly",
+  "youth": "the youth curriculum",
+  "scriptures": "scripture front matter",
+  "video": "videos",
+};
+
 const CATEGORY_LABEL = {
   "pid-no-match": "this highlight sat on a paragraph the tool can't read, so it isn't shown",
   "empty-span": "the highlighted words couldn't be pinned down — the whole verse is marked instead",
@@ -802,6 +819,7 @@ const CATEGORY_LABEL = {
   "note-parse-empty": "this note was empty",
   "heading-highlight": "highlighted on a chapter heading, where there's no verse to mark",
   "chapter-note": "written on a chapter heading — placed at the top of that chapter",
+  "source-unavailable": "this page is no longer published on churchofjesuschrist.org — any note you wrote on it is kept in Miscellaneous",
 };
 
 /**
@@ -814,7 +832,7 @@ const CATEGORY_LABEL = {
  * table to find out whether their marks survived. So: lead with the answer,
  * keep every detail, and put it one click away.
  */
-function renderReport(summary, unplacedCount) {
+function renderReport(summary, unplacedCount, outOfScope) {
   reportEl.hidden = false;
   reportEl.replaceChildren();
 
@@ -825,11 +843,30 @@ function renderReport(summary, unplacedCount) {
   // Say what is missing, rather than quoting a ratio that needs decoding. A
   // verse marked in full is still in the book; a highlight on a heading was
   // never a verse. The only real absence is a highlight we couldn't render.
-  reportEl.append(el("p", { className: "report-headline", textContent:
-    notShown === 0
-      ? `Everything you marked is in your book — all ${summary.total.toLocaleString()} of them.`
-      : `Everything you marked is in your book, apart from ${notShown} highlight${notShown === 1 ? "" : "s"} ` +
-        `on a page this tool can't read.` }));
+  // Out-of-scope marks never reach the diagnostics -- they are filtered out
+  // before assembly -- so the headline has to account for them explicitly or
+  // it will tell someone who reads the Ensign that nothing was left out.
+  const outside = outOfScope?.highlights ?? 0;
+  const headline =
+    outside > 0
+      ? `Nearly everything you marked is in your book. ` +
+        `${outside.toLocaleString()} mark${outside === 1 ? " is" : "s are"} in sources it doesn't cover yet.`
+      : notShown === 0
+        ? `Everything you marked is in your book — all ${summary.total.toLocaleString()} of them.`
+        : `Everything you marked is in your book, apart from ${notShown} highlight${notShown === 1 ? "" : "s"} ` +
+          `on a page this tool can't read.`;
+  reportEl.append(el("p", { className: "report-headline", textContent: headline }));
+
+  if (outside > 0) {
+    const top = (outOfScope.bySource ?? []).slice(0, 4)
+      .map(([name, n]) => `${SOURCE_LABEL[name] ?? name} (${n.toLocaleString()})`).join(", ");
+    const withContent = outOfScope.annotationsWithContent ?? 0;
+    reportEl.append(el("p", { className: "report-outside", textContent:
+      `Their Testament covers scripture, general conference, the study helps, the magazines, and the manuals. ` +
+      `${outside.toLocaleString()} of your marks are elsewhere — ${top}` +
+      (withContent ? ` — including ${withContent.toLocaleString()} with a note or tag of your own` : "") +
+      `. Those aren't in the book. Your export file keeps every one of them, so nothing is lost.` }));
+  }
 
   const notes = [];
   if (whole) notes.push(`${whole.toLocaleString()} verse${whole === 1 ? " is" : "s are"} marked in full, ` +
@@ -837,6 +874,9 @@ function renderReport(summary, unplacedCount) {
   if (n("heading-highlight")) notes.push(`${n("heading-highlight")} highlight${n("heading-highlight") === 1 ? " was" : "s were"} ` +
     `on a chapter heading or summary. Where you marked words, those words are shown beneath the heading; ` +
     `where you chose no color, the tag or note carries on its own.`);
+  if (n("source-unavailable")) notes.push(`${n("source-unavailable").toLocaleString()} mark${n("source-unavailable") === 1 ? " is" : "s are"} ` +
+    `on pages the Church no longer publishes — retired manuals, mostly. The passage can't be reproduced, ` +
+    `but anything you wrote about it is kept in Miscellaneous.`);
   if (n("chapter-note")) notes.push(`${n("chapter-note")} note${n("chapter-note") === 1 ? "" : "s"} written on a chapter heading ` +
     `${n("chapter-note") === 1 ? "sits" : "sit"} at the top of that chapter.`);
   if (unplacedCount) notes.push(`${unplacedCount} note${unplacedCount === 1 ? "" : "s"} couldn't be attached to a spot, ` +
@@ -982,11 +1022,11 @@ goButton.addEventListener("click", async () => {
 
     log("assembling book…");
     stage = "assembling";
-    const { book, diags, uncategorised } = await assembleBook(envelope.annotations, content, { title, personName, margins });
+    const { book, diags, uncategorised, outOfScope } = await assembleBook(envelope.annotations, content, { title, personName, margins });
     progress.remove();
     log(`assembled ${book.parts.length} part(s), ${content.fetched} fetched / ${content.cacheHits} cached`);
     if (uncategorised.length) log(`${uncategorised.length} annotation(s) could not be categorised`);
-    renderReport(summarizeDiags(diags), (book.unplacedNotes ?? []).length);
+    renderReport(summarizeDiags(diags), (book.unplacedNotes ?? []).length, outOfScope);
 
     setStatus(logEl.textContent + "\nfetching Typst template…");
     const mainTypst = await fetch("./gen/book.typ").then((r) => r.text());
