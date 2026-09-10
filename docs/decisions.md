@@ -1359,3 +1359,53 @@ all**, and out-of-scope marks are down to 11.
 The copyright page was widened to match: it now names scripture, general
 conference addresses, magazine articles, study helps, and manual excerpts, and
 says that none of these works is reproduced in full.
+
+### Long notes ran off the bottom of the page (2026-09-10)
+
+A margin note is `place`d, not flowed. Placed content does not break across
+pages and is not held inside the text block, so a note taller than the space
+left below its verse simply ran off the bottom — the words were in the PDF,
+drawn past the edge of the page, invisible. Reported on Genesis 7:4; the
+longest note in one real export is 1,359 characters, which is about 500pt in a
+109pt-wide column against a 522pt text block. It could not have fitted
+anywhere on any page.
+
+Two fixes, and one approach that had to be abandoned.
+
+**Notes taller than 170pt are set full measure beneath their verse**, in the
+same ruled, indented style a chapter-level note gets, in a *breakable* block —
+so a very long one runs on to the next page instead of off this one. 170pt is
+about sixteen lines of the margin column; on two real corpora that is 1.5% of
+notes, often enough to matter and rare enough to read as a variation rather
+than a pattern. Note that the block is a `block` and not a `box`: a box is
+inline and never breaks, which would have quietly reintroduced the bug.
+
+**Shorter notes that would still overrun are lifted**, by exactly enough for
+their last line to land on the page. They end level with the bottom of the
+text block, beside a verse that is itself near the bottom whenever this
+happens, so note and verse stay adjacent.
+
+**What did not work: breaking the page.** The obvious fix is "if the note
+doesn't fit below, start the verse on a fresh page." It does not converge.
+A page break changes the flow, which changes where the verse lands, which
+changes whether the break was needed — Typst reported `context position did
+not stabilize` and gave up after five attempts. `pagebreak(weak: true)` does
+not save it either. Lifting works precisely because `place` is out of flow:
+reading the position to compute a lift moves nothing, so there is no loop.
+
+Two smaller traps in the same area, both worth remembering:
+
+- `here()` resolves **once per `context`, at the context's own place in the
+  flow** — not wherever in the code it is called. The first version read the
+  position before the debt gap above the verse had been inserted, and notes
+  still overran by up to 33pt. The read has to happen in a nested `context`
+  at the point of placement.
+- `mdebt` must be computed from the *unlifted* note height. Feeding the lift
+  back into a state that itself inserts vertical space is another loop the
+  layout cannot settle (`value of state("mdebt") did not converge`).
+  Over-reserving by the lift costs a little space and nothing else.
+
+Verified by scanning the text geometry of every page rather than by eye: across
+the Old Testament (158 pages) and the New Testament (196 pages) of a real
+export, no glyph now sits more than 4pt below the text block, which is ordinary
+descender slack.

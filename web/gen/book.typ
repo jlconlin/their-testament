@@ -44,6 +44,20 @@
 #let notew = 1.52in
 #let overhang-cap = 150pt
 
+// Where the text block ends on the page -- used to tell whether a margin note
+// would run off the bottom before it is placed there.
+#let textbottom = 9in - 0.85in
+
+// The tallest note that goes in the margin at all.
+//
+// A margin note is placed, not flowed: it cannot break across pages, so one
+// taller than the space left below it used to be cut off at the paper's edge.
+// About 170pt is sixteen lines of the note column. Past that a note is better
+// set full measure under its verse, where it flows like any other text -- on
+// two real corpora that is 1.5% of notes, often enough to be handled and rare
+// enough to read as a variation rather than a pattern.
+#let margin-note-max = 170pt
+
 #let fillcol = (
   red: rgb("#FFDCE0"), pink: rgb("#FEDEFB"), orange: rgb("#FFE6CC"),
   yellow: rgb("#FEF1B4"), green: rgb("#EAF5CB"), blue: rgb("#CFF7F9"),
@@ -186,7 +200,7 @@
   if n.mark != none { apply-mark(b, n.mark.color, n.mark.style) } else { text(fill: tagcol)[#b] }
 }
 
-#let one-note(n) = block(width: 100%, breakable: false, {
+#let one-note(n, breakable: false) = block(width: 100%, breakable: breakable, {
   set par(justify: false, leading: 0.46em, spacing: 0.4em)
   text(size: 7.6pt, tracking: 0.04em, number-type: "lining")[#ref-header(n)]
   parbreak()
@@ -244,6 +258,32 @@
   v(0.16in)
 }
 
+// A note too tall for the margin, set full measure beneath its verse.
+//
+// Nothing is shortened. The margin is somewhere to put a note, not a limit on
+// how much a person may write, and this is the same treatment a chapter-level
+// note gets: indented, ruled at the left, and breakable, so a long one runs on
+// to the next page instead of off the bottom of this one.
+#let long-note-block(notes) = {
+  v(0.3em)
+  // A plain block, not a box: a box is inline and never breaks, which would
+  // reintroduce the very problem this exists to solve. The text column is the
+  // full width of the text area, so no centering wrapper is needed either.
+  block(
+    width: 100%, breakable: true, inset: (left: 0.6em),
+    stroke: (left: 0.6pt + gapmark),
+    {
+      set text(size: 8pt, fill: notegray, number-type: "old-style")
+      set par(hanging-indent: 0pt, first-line-indent: 0pt)
+      for (i, n) in notes.enumerate() {
+        if i > 0 { v(0.5em) }
+        one-note(n, breakable: true)
+      }
+    },
+  )
+  v(0.3em)
+}
+
 #let note-stack(notes) = {
   set text(size: 8pt, fill: notegray, number-type: "old-style")
   set par(hanging-indent: 0pt, first-line-indent: 0pt)
@@ -281,13 +321,39 @@
     if debt > 0pt { v(debt); mdebt.update(0pt) }
     let nc = note-stack(vs.notes)
     let nh = measure(box(width: notew, nc)).height
-    // mirrored: notes in the outer margin (right on recto, left on verso)
-    let verso = mirrored and calc.even(here().page())
-    let dx = if verso { -(gapw + notew) } else { cw + gapw }
-    place(dx: dx, dy: 0.15em, box(width: notew, nc))
-    vbody
-    parbreak()
-    mdebt.update(calc.min(calc.max(0pt, nh - vh), overhang-cap))
+
+    if nh > margin-note-max {
+      // Too tall for any margin: set it under the verse, where it can break.
+      vbody
+      parbreak()
+      long-note-block(vs.notes)
+      mdebt.update(0pt)
+    } else {
+      // It fits a margin -- but not necessarily the space left below it on
+      // *this* page, and a placed box that overruns is cut off rather than
+      // carried over. So the note is lifted just enough for its last line to
+      // land on the page: it ends level with the bottom of the text block,
+      // beside the verse, which is itself near the bottom whenever this
+      // happens. Lifting is safe where a page break is not -- `place` is out
+      // of flow, so nothing else moves and the layout still converges.
+      // A nested context, so the position read is the one *after* any debt
+      // gap above -- `here()` resolves once per context, at the context's own
+      // place in the flow, not wherever it happens to be called.
+      context {
+        let lift = calc.min(0pt, textbottom - here().position().y - nh)
+        // mirrored: notes in the outer margin (right on recto, left on verso)
+        let verso = mirrored and calc.even(here().page())
+        let dx = if verso { -(gapw + notew) } else { cw + gapw }
+        place(dx: dx, dy: 0.15em + lift, box(width: notew, nc))
+      }
+      vbody
+      parbreak()
+      // Deliberately measured from the unlifted height: `lift` depends on where
+      // this verse landed, and feeding that back into a state that itself moves
+      // the next verse is a loop the layout cannot settle. Over-reserving by
+      // the lift costs a little space and nothing else.
+      mdebt.update(calc.min(calc.max(0pt, nh - vh), overhang-cap))
+    }
   } else {
     vbody
     parbreak()
