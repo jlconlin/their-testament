@@ -1325,12 +1325,32 @@ is now kept in Miscellaneous instead of disappearing with the page.
 
 Out-of-scope marks fell from ~960 to 10 on the second export.
 
+### Front matter belongs inside its volume (2026-09-10)
+
+The title page, the testimonies of the Three and the Eight Witnesses, Joseph
+Smith's own testimony, the explanatory introduction — every volume is bound
+with documents before its first book, and people mark them.
+
+They are not chapters: `/scriptures/<volume>/<document>`, no chapter number,
+plain numbered paragraphs with no verse markup. So a scripture Part gained an
+optional `documents` list, assembled by the same `assembleDocuments` the
+magazines use and rendered ahead of the volume's first book — which is where
+the volume itself puts them. They appear at the head of the Part's contents
+page and under a bookmark-only "Front Matter" heading in the outline.
+
+Classification is derived rather than listed: any `/scriptures/<volume>/<slug>`
+whose slug is *not* one of that volume's books is front matter. `FRONT_ORDER`
+gives the binding order for the ones that exist today (Old and New Testament,
+Book of Mormon, Doctrine and Covenants, Pearl of Great Price); anything not
+listed still gets placed, alphabetically, after them. Titles come from
+`meta.title` — "Testimony of Three Witnesses", where the `h1` on the title page
+is the volume's name set as display type.
+
+With this, the first reader's export has **no uncategorised annotations at
+all**, and out-of-scope marks are down to 11.
+
 ### Still out, and named rather than hidden
 
-- **Book of Mormon front matter** — the title page, the testimonies of the
-  Three and the Eight, Joseph Smith's testimony (13 marks across the two
-  exports). They live at `/scriptures/bofm/<name>` with no chapter number, so
-  they need a document-shaped slot inside a scripture Part. Worth doing.
 - **The youth curriculum** (`/youth/learn/…`) and videos.
 - **The two proclamations are in**, as a Proclamations section under Scripture
   Helps. That is a judgment call about placement, not about whether to keep

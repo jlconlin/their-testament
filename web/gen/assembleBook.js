@@ -7,7 +7,7 @@
 import { assembleScriptureBook, buildScripturePart, mergeTagIndex } from "./assemble.js";
 import { assembleConferencePart } from "./assembleGC.js";
 import { assembleNotebooksPart } from "./notebooks.js";
-import { assembleCollectionPart } from "./assembleCollection.js";
+import { assembleCollectionPart, assembleDocuments, } from "./assembleCollection.js";
 import { classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev, titleFromSlug, HELPS_PART, MAGAZINES_PART, MANUALS_PART, HELP_COLLECTIONS, HELP_ORDER, MAGAZINE_ORDER, } from "./scripture.js";
 export async function assembleBook(annotations, content, opts = {}) {
     // ---- 1. classify every annotation --------------------------------------
@@ -22,6 +22,8 @@ export async function assembleBook(annotations, content, opts = {}) {
         magazines: new Map(),
         manuals: new Map(),
     };
+    // part key -> front-matter documents, in the order they are bound in
+    const frontMatter = new Map();
     const sectionLabel = new Map(); // section key -> display label
     const noteDoc = (where, section, issue, docUri) => {
         const sec = where.get(section) ?? new Map();
@@ -57,6 +59,15 @@ export async function assembleBook(annotations, content, opts = {}) {
             }
             if (c.scope === "gc") {
                 scope.gc.push(a);
+                placed = true;
+                break;
+            }
+            if (c.scope === "front") {
+                const list = frontMatter.get(c.partKey) ?? [];
+                if (!list.some((f) => f.uri === c.docUri)) {
+                    list.push({ uri: c.docUri, slug: c.slug, order: c.frontOrder });
+                }
+                frontMatter.set(c.partKey, list);
                 placed = true;
                 break;
             }
@@ -120,7 +131,26 @@ export async function assembleBook(annotations, content, opts = {}) {
             allUnplacedNotes.push(...result.unplacedNotes);
         }
         const part = buildScripturePart(pdef.key, pdef.title, books);
-        if (part.kind === "scripture" && part.chapters.length)
+        // The volume's front matter -- its title page, the witnesses' testimonies
+        // -- sits before its first book, which is where the volume itself puts it.
+        // These are documents, not chapters: plain numbered paragraphs with no
+        // verse markup, so they go through the same assembler the magazines use.
+        const front = (frontMatter.get(pdef.key) ?? [])
+            .sort((a, b) => a.order - b.order || a.slug.localeCompare(b.slug));
+        if (part.kind === "scripture" && front.length) {
+            const res = await assembleDocuments(annotations, 
+            // meta.title names these properly ("Testimony of Three Witnesses");
+            // the h1 on the title page is the volume's name set as display type
+            front.map((f) => ({
+                slug: f.slug, uri: f.uri, refPrefix: pdef.title, titleFrom: "meta",
+            })), content, `${pdef.key}|front`, -100);
+            if (res.talks.length)
+                part.documents = res.talks;
+            allTags.push(...res.tagEntries);
+            allDiags.push(...res.diags);
+            allUnplacedNotes.push(...res.unplacedNotes);
+        }
+        if (part.kind === "scripture" && (part.chapters.length || part.documents?.length))
             parts.push(part);
     }
     // ---- 3. assemble GC -------------------------------------------------------

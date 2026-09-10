@@ -134,7 +134,8 @@ const PIECE_UNIT_CAP = 4000;
 /** Units of content in a Part -- what the compiler's recursion depth tracks. */
 function countUnits(part) {
     if (part.kind === "scripture") {
-        return (part.chapters ?? []).reduce((n, c) => n + (c.verses?.length ?? 0), 0);
+        return (part.chapters ?? []).reduce((n, c) => n + (c.verses?.length ?? 0), 0)
+            + (part.documents ?? []).reduce((n, d) => n + (d.paragraphs?.length ?? 0), 0);
     }
     if (part.kind === "gc") {
         return (part.conferences ?? []).reduce((n, c) => n + (c.talks ?? []).reduce((m, t) => m + (t.paragraphs?.length ?? 0), 0), 0);
@@ -162,7 +163,16 @@ function splitPart(part) {
     };
     if (part.kind === "scripture" && part.chapters?.length > 1) {
         const [a, b] = halve(part.chapters);
-        return [{ ...part, chapters: a }, { ...part, chapters: b }];
+        // front matter travels with the first piece; it is small and it belongs
+        // at the head of the volume, not repeated in the middle of it
+        return [{ ...part, chapters: a }, { ...part, chapters: b, documents: undefined }];
+    }
+    if (part.kind === "scripture" && part.documents?.length > 1) {
+        const [a, b] = halve(part.documents);
+        return [
+            { ...part, documents: a, chapters: [] },
+            { ...part, documents: b },
+        ];
     }
     if (part.kind === "notebooks" && part.notebooks?.length > 1) {
         const [a, b] = halve(part.notebooks);

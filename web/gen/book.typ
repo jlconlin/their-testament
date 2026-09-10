@@ -384,7 +384,8 @@
     let ploc = if pl.len() > 0 { pl.first().location() } else { none }
     let summary = if part.kind == "scripture" {
       let books = part.chapters.map(c => c.book).dedup()
-      [#books.len() book#if books.len() != 1 [s], #part.chapters.len() chapters]
+      let nfront = part.at("documents", default: ()).len()
+      [#books.len() book#if books.len() != 1 [s], #part.chapters.len() chapters#if nfront > 0 [, #nfront in front matter]]
     } else if part.kind == "gc" {
       let n = part.conferences.map(c => c.talks.len()).sum(default: 0)
       [#part.conferences.len() conferences, #n talks]
@@ -444,6 +445,16 @@
   set par(justify: false, leading: 0.5em, spacing: 0.5em)
 
   if part.kind == "scripture" {
+    for doc in part.at("documents", default: ()) {
+      let loc = cmOf(part.key + "|front|" + doc.slug)
+      block(above: 0.4em, below: 0.15em, box(width: 100%, {
+        let body = text(font: sans, size: 9.5pt)[#doc.title]
+        if loc != none { link(loc, body) } else { body }
+        leader
+        let p = relPage(loc)
+        if p != none { text(size: 7.5pt, fill: notegray, number-type: "lining")[#p] }
+      }))
+    }
     let books = ()
     for ch in part.chapters {
       if books.len() == 0 or books.last().at(0) != ch.book { books.push((ch.book, ())) }
@@ -729,6 +740,19 @@
   }
 }
 
+// A volume's front matter: its title page, the witnesses' testimonies, the
+// explanatory introduction. They are documents rather than chapters, so they
+// typeset like an article, but they belong inside the volume's own Part and
+// come before its first book -- which is where the volume itself puts them.
+#let render-scripture-front(part) = {
+  let docs = part.at("documents", default: ())
+  if docs.len() == 0 { return }
+  heading(level: 2)[Front Matter]
+  for doc in docs {
+    render-article(part.key + "|front|" + doc.slug, doc, level: 3)
+  }
+}
+
 // A centered divider line -- a conference, a magazine issue, a publication.
 #let divider-line(label, size: 13pt, tracking: 0.14em) = {
   align(center, text(font: sans, size: size, weight: "medium", tracking: tracking, fill: rgb("#4a4238"))[#upper(label)])
@@ -875,7 +899,7 @@
     }
     part-toc(part)
     if part.kind == "notebooks" { render-notebooks-part(part) }
-    else if part.kind == "scripture" { render-scripture-part(part) }
+    else if part.kind == "scripture" { render-scripture-front(part); render-scripture-part(part) }
     else if part.kind == "gc" { render-gc-part(part) }
     else if part.kind == "collection" { render-collection-part(part) }
   }

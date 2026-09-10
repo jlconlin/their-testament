@@ -42,6 +42,29 @@ export const HELP_ORDER = [...Object.keys(HELP_COLLECTIONS), "proclamations"];
  * aid. They are short, they are marked often, and without an entry here every
  * mark on them is dropped -- so they get one section of their own.
  */
+/**
+ * A volume's front matter: the documents bound in before its first book.
+ *
+ * The Book of Mormon's are the ones people mark -- the title page, the two
+ * testimonies of the witnesses, Joseph Smith's own account -- but every volume
+ * has some, so this is keyed by collection and anything not listed still gets
+ * placed (alphabetically, after the named ones) rather than dropped.
+ */
+const FRONT_ORDER: Record<string, string[]> = {
+  ot: ["title-page", "dedication"],
+  nt: ["title-page"],
+  bofm: ["title-page", "bofm-title", "introduction", "three", "eight", "js",
+         "explanation", "illustrations", "pronunciation", "reference"],
+  "dc-testament": ["title-page", "introduction", "chron-order"],
+  pgp: ["title-page", "introduction"],
+};
+
+/** Position of a front-matter document within its volume; unlisted sort last. */
+export function frontOrder(collection: string, slug: string): number {
+  const i = FRONT_ORDER[collection]?.indexOf(slug) ?? -1;
+  return i >= 0 ? i : 100;
+}
+
 export const PROCLAMATION_COLLECTIONS = new Set([
   "the-family-a-proclamation-to-the-world",
   "the-restoration-of-the-fulness-of-the-gospel-of-jesus-christ",
@@ -148,6 +171,8 @@ export type Classification =
       collection: string; bookSlug: string; bookOrder: number; chapter: number;
       docUri: string }
   | { scope: "gc"; year: string; month: string; slug: string; docUri: string }
+  | { scope: "front"; partKey: string; partTitle: string; partOrder: number;
+      collection: string; slug: string; frontOrder: number; docUri: string }
   | { scope: "help"; collection: string; collectionTitle: string; entry: string; docUri: string }
   | { scope: "magazine"; pub: string; pubTitle: string; year: string; month: string;
       slug: string; docUri: string }
@@ -247,6 +272,22 @@ export function classify(uri: string | undefined): Classification {
       };
     }
     return { scope: "uncategorised", reason: `unknown book ${collection}/${bookSlug}`, uri };
+  }
+
+  // Front matter: /scriptures/<volume>/<document>, with no chapter number and
+  // a slug that is not one of the volume's books.
+  const fm = uri.match(PROC_RE);
+  if (fm) {
+    const collection = fm[1]!, slug = fm[2]!;
+    const part = SCRIPTURE_PARTS.find((p) => p.collections.includes(collection));
+    if (part && !(BOOK_ORDER[collection] ?? []).includes(slug)) {
+      return {
+        scope: "front",
+        partKey: part.key, partTitle: part.title, partOrder: part.order,
+        collection, slug, frontOrder: frontOrder(collection, slug),
+        docUri: `/scriptures/${collection}/${slug}`,
+      };
+    }
   }
 
   if (top === "scriptures") return { scope: "uncategorised", reason: "scripture non-chapter (front matter / anchor)", uri };

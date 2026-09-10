@@ -230,7 +230,11 @@ export interface DocNotebook {
 }
 
 export type DocPart =
-  | { kind: "scripture"; key: string; title: string; chapters: DocChapter[] }
+  | {
+      kind: "scripture"; key: string; title: string; chapters: DocChapter[];
+      /** the volume's front matter -- title page, witnesses' testimonies -- before its books */
+      documents?: DocTalk[];
+    }
   | { kind: "gc"; key: string; title: string; conferences: DocConference[] }
   | { kind: "collection"; key: string; title: string; sections: DocSection[] }
   | { kind: "notebooks"; key: string; title: string; notebooks: DocNotebook[] };

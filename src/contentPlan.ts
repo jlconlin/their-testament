@@ -24,7 +24,8 @@ export function planContentUris(annotations: Annotation[]): string[] {
   for (const a of annotations) {
     for (const h of a.highlights ?? []) {
       const c = classify(h.uri);
-      if (c.scope === "scripture" || c.scope === "help" || c.scope === "magazine" || c.scope === "manual") {
+      if (c.scope === "scripture" || c.scope === "front" || c.scope === "help"
+          || c.scope === "magazine" || c.scope === "manual") {
         uris.add(c.docUri);
       }
       if (c.scope === "gc") {
