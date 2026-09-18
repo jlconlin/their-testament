@@ -828,7 +828,7 @@ when it is actually finished.
 
 **Milestone status:**
 
-- **M6 — Browser generator: built and live**, pending **M11**. Upload →
+- **M6 — Browser generator: built and live.** Upload →
   options → generate → completeness report → download all work in-browser,
   and the generator now ships on the landing page.
 - **M7 — Public-release readiness: open.** Permissions request #L26-64433 is
@@ -851,16 +851,36 @@ when it is actually finished.
   annotations can be obtained some other way. An official bulk export, if one
   exists, would reshape acquisition more than any amount of onboarding polish,
   and would make the bookmarklet the fallback rather than the front door.
-- **M11 — Scale verification: essentially met (2026-09-06).** Jeremy generated
-  his own book from the live site: 1,673 pages, the full ~1,630-document fetch
-  and a split compile with bisection and merge, all in a real browser. Both
-  unknowns are closed, and the run earned its keep — it exposed that a divided
-  Part lost its bookmarks and half its contents, which no synthetic test had
-  caught. The tuning note below also proved right: General Conference bisected
-  in Chrome at a size that compiled fine in Node, so `PIECE_UNIT_CAP` is
-  optimistic there. Bisection absorbed it, exactly as designed.
-  **Still owed:** one more run now that highlight offsets have moved, to
-  confirm the corrected marks at full scale.
+- **M11 — Scale verification: met (2026-09-18).** Two real runs, both against
+  the actual live site, both earning their keep by finding something no
+  synthetic test had:
+  - **2026-09-06:** 1,673 pages, the full ~1,630-document fetch and a split
+    compile with bisection and merge, all in a real browser. Exposed that a
+    divided Part lost its bookmarks and half its contents, and that General
+    Conference bisected in Chrome at a size that compiled fine in Node
+    (`PIECE_UNIT_CAP` is optimistic there; bisection absorbed it as designed).
+  - **2026-09-18:** a ~19,900-annotation export, after Scripture Helps,
+    Magazines, Manuals, and front matter had all landed. This run *failed*
+    outright ("too large... can't be divided any further") -- and the failure
+    was itself informative: a Part halved nine times and still failing is not
+    a size problem, it's a bug wearing a size problem's message. Root-caused
+    against the real export (a paragraph-less article crashing `render-article`
+    -- see "An article with no paragraphs crashed the compile"), fixed, and
+    re-verified by replaying the exact split/compile/merge logic against the
+    real `typst` CLI for all 11 Parts: 2,854 pages, zero failures. The same
+    pass also caught a missing `/Parent` link in every merged bookmark (spec
+    violation, silently tolerated by every reader tried) and reduced
+    highlight-offset warnings from 29 to 7.
+
+  The exit criterion -- exercising fetch and split-compile at full production
+  size, in a real browser -- has now been met twice, each time finding a real
+  defect a smaller test couldn't have. That's not a gap to close before
+  calling this done; it's what continuing to run real, growing exports is
+  *for*. Expect it to keep finding things as the corpus grows and new content
+  types get added -- that's this milestone doing its job, not it being
+  unfinished. The Node-CLI replay confirms the fix at the logic level; it has
+  not yet been re-run in an actual browser tab since these fixes landed, which
+  the next real generation will do for free.
 
 **Tuning note for M11:** the piece-size numbers were measured in Node, with a
 process per piece standing in for a terminated Worker. Chrome gives wasm a
