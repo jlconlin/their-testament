@@ -235,11 +235,18 @@ function walkOutline(lib, context, dict, srcPageRefs) {
     return items;
 }
 /** Build a sibling chain of outline dicts in destDoc; returns its ends + total count (for the parent's own Count). */
-function buildOutline(lib, destDoc, items, destPages) {
+// `parentRef` is the enclosing outline item's ref, or the root /Outlines
+// dict's ref at the top level -- every item dictionary is required to name
+// it (PDF 32000-1:2008 §12.3.3). Omitting it doesn't stop mutool or a
+// browser's own viewer from showing the bookmarks (both silently repair the
+// tree), but it is exactly the kind of spec violation a stricter reader --
+// an older Acrobat, a print shop's RIP -- is not guaranteed to tolerate.
+function buildOutline(lib, destDoc, items, destPages, parentRef) {
     let firstRef = null, lastRef = null, prevRef = null, totalCount = 0;
     for (const it of items) {
         const dict = destDoc.context.obj({});
         dict.set(lib.PDFName.of("Title"), lib.PDFHexString.fromText(it.title));
+        dict.set(lib.PDFName.of("Parent"), parentRef);
         if (it.pageIndex != null && destPages[it.pageIndex]) {
             const destArr = destDoc.context.obj([destPages[it.pageIndex].ref, lib.PDFName.of("Fit")]);
             dict.set(lib.PDFName.of("Dest"), destArr);
@@ -254,7 +261,7 @@ function buildOutline(lib, destDoc, items, destPages) {
         prevRef = ref;
         totalCount += 1;
         if (it.children.length) {
-            const kids = buildOutline(lib, destDoc, it.children, destPages);
+            const kids = buildOutline(lib, destDoc, it.children, destPages, ref);
             if (kids.firstRef) {
                 dict.set(lib.PDFName.of("First"), kids.firstRef);
                 dict.set(lib.PDFName.of("Last"), kids.lastRef);
@@ -328,16 +335,19 @@ export async function mergePdfs(pdfs) {
         pageBase += copied.length;
     }
     // Build only once, after coalescing, against the finished page list.
+    //
+    // The root dict is registered *before* its children so each top-level item
+    // has something to set as its own /Parent -- then filled in afterward,
+    // once the children exist to report their own first/last/count back to it.
     topLevel = coalesceAdjacent(topLevel);
-    const chain = buildOutline(lib, destDoc, topLevel, destDoc.getPages());
+    const rootRef = destDoc.context.register(destDoc.context.obj({ Type: PDFName.of("Outlines") }));
+    const chain = buildOutline(lib, destDoc, topLevel, destDoc.getPages(), rootRef);
     if (chain.firstRef) {
-        const root = destDoc.context.obj({
-            Type: PDFName.of("Outlines"),
-            First: chain.firstRef,
-            Last: chain.lastRef,
-            Count: PDFNumber.of(chain.count),
-        });
-        destDoc.catalog.set(PDFName.of("Outlines"), destDoc.context.register(root));
+        const root = destDoc.context.lookup(rootRef, PDFDict);
+        root.set(PDFName.of("First"), chain.firstRef);
+        root.set(PDFName.of("Last"), chain.lastRef);
+        root.set(PDFName.of("Count"), PDFNumber.of(chain.count));
+        destDoc.catalog.set(PDFName.of("Outlines"), rootRef);
     }
     resolveCrossLinks(lib, destDoc);
     return destDoc.save();

@@ -113,28 +113,61 @@ export async function renderPdfBrowser(opts: {
  * Terminating the realm is the only way to actually give the memory back, so
  * peak becomes the cost of the largest single chunk instead.
  */
+export interface ChunkOutcome {
+  pdf: Uint8Array | null;
+  /** Why the compile failed, when it did -- the Worker's own error message. */
+  error?: string;
+}
+
+/**
+ * Compile one piece in a fresh Worker.
+ *
+ * A failure here has two very different causes -- the piece was genuinely too
+ * big (an OOM, a layout-recursion stack overflow), or the template itself hit
+ * a real bug -- and the caller's response to each should be different:
+ * splitting the piece in half can fix the first and can *never* fix the
+ * second. Distinguishing them needs the Worker's actual error message, so it
+ * is always logged and always returned, never silently collapsed to `null`
+ * the way an earlier version did. That version's failure mode was exactly
+ * this: a template bug got bisected all the way down to a single indivisible
+ * unit, which failed the same way every time, and the person generating a
+ * book saw only "too large... can't be divided any further" -- a plausible
+ * but wrong diagnosis, with the real cause never reaching the console at all.
+ */
 function runChunk(
   spec: ChunkSpec,
   mainTypst: string,
   fonts: (string | Uint8Array)[] | undefined,
-): Promise<Uint8Array | null> {
+  label: string,
+): Promise<ChunkOutcome> {
   return new Promise((resolve) => {
     let worker: Worker;
     try {
       worker = new Worker(new URL("../compile-worker.js", import.meta.url), { type: "module" });
-    } catch {
-      resolve(null);
+    } catch (err) {
+      const error = String(err);
+      console.error(`[their-testament] couldn't start a compile worker for "${label}":`, error);
+      resolve({ pdf: null, error });
       return;
     }
     let settled = false;
-    const done = (value: Uint8Array | null) => {
+    const done = (value: ChunkOutcome) => {
       if (settled) return;
       settled = true;
       worker.terminate();
       resolve(value);
     };
-    worker.onmessage = (e: MessageEvent) => done(e.data?.ok ? (e.data.pdf as Uint8Array) : null);
-    worker.onerror = () => done(null);
+    worker.onmessage = (e: MessageEvent) => {
+      if (e.data?.ok) { done({ pdf: e.data.pdf as Uint8Array }); return; }
+      const error = e.data?.error ?? "(worker reported failure with no detail)";
+      console.error(`[their-testament] compile failed for "${label}":`, error);
+      done({ pdf: null, error });
+    };
+    worker.onerror = (ev: ErrorEvent) => {
+      const error = ev.message || String(ev);
+      console.error(`[their-testament] worker error for "${label}":`, error);
+      done({ pdf: null, error });
+    };
     worker.postMessage({ ...spec, mainTypst, fonts });
   });
 }
@@ -315,7 +348,7 @@ async function compilePiece(
 ): Promise<void> {
   prog.step(label);
   const book = { ...ctx.book, parts: [part], tagIndex: [], unplacedNotes: [] } as DocBook;
-  const pdf = await runChunk({ book, mode: "part", continued }, ctx.mainTypst, ctx.fonts);
+  const { pdf, error } = await runChunk({ book, mode: "part", continued }, ctx.mainTypst, ctx.fonts, label);
   if (pdf) {
     out.push(pdf);
     prog.finishOne();
@@ -323,7 +356,13 @@ async function compilePiece(
   }
   const halves = splitPart(part);
   if (!halves) {
-    throw new Error(`"${part.title}" is too large for this browser to lay out, and can't be divided any further.`);
+    // Splitting is out of moves. Say so, and say what the compiler actually
+    // reported -- a repeated failure that survives being divided all the way
+    // down to a single unit is far more likely a real bug than genuine size.
+    throw new Error(
+      `"${part.title}" could not be compiled, even divided down to a single piece.` +
+      (error ? ` The compiler said: ${error}` : ""),
+    );
   }
   prog.addPieces(1); // one piece became two
   await compilePiece(ctx, halves[0], out, continued, prog, `${part.title} (dividing further)`);
@@ -355,11 +394,16 @@ export async function renderBookAuto(opts: SplitCtx): Promise<{ pdf: Uint8Array;
 
   if (totalUnits <= PIECE_UNIT_CAP) {
     opts.onProgress?.({ done: 0, total: 1, label: "the whole book, in one pass" });
-    const onePass = await runChunk({ book: opts.book, mode: "full" }, opts.mainTypst, opts.fonts);
+    const { pdf: onePass } = await runChunk(
+      { book: opts.book, mode: "full" }, opts.mainTypst, opts.fonts, "the whole book, in one pass",
+    );
     if (onePass) {
       opts.onProgress?.({ done: 1, total: 1, label: "done" });
       return { pdf: onePass, split: false };
     }
+    // A failed one-pass attempt isn't fatal -- it just falls through to the
+    // split path below, which is why its error is logged (by runChunk) but
+    // not raised here.
   }
 
   // Count the pieces before compiling any, so the caller can show a fraction
@@ -370,8 +414,10 @@ export async function renderBookAuto(opts: SplitCtx): Promise<{ pdf: Uint8Array;
   const prog = new ProgressCounter(opts.onProgress, partPieces + 4);
 
   const need = async (spec: ChunkSpec, what: string): Promise<Uint8Array> => {
-    const pdf = await runChunk(spec, opts.mainTypst, opts.fonts);
-    if (!pdf) throw new Error(`The ${what} was too large for this browser to lay out.`);
+    const { pdf, error } = await runChunk(spec, opts.mainTypst, opts.fonts, what);
+    if (!pdf) {
+      throw new Error(`Compiling the ${what} failed.` + (error ? ` The compiler said: ${error}` : ""));
+    }
     return pdf;
   };
 
@@ -412,7 +458,12 @@ export async function renderBookAuto(opts: SplitCtx): Promise<{ pdf: Uint8Array;
   // computed from -- correct page numbers matter more than clickable ones.
   prog.step("the list of Parts");
   let front = frontPlain;
-  const frontLinked = await runChunk({ book: opts.book, mode: "front", pagemap }, opts.mainTypst, opts.fonts);
+  const { pdf: frontLinked } = await runChunk(
+    { book: opts.book, mode: "front", pagemap }, opts.mainTypst, opts.fonts, "the list of Parts",
+  );
+  // A failure here falls back to the unlinked front matter rather than
+  // failing the whole book -- the page numbers it was computed from are
+  // still correct, it just loses its "Contents" links to each Part.
   if (frontLinked && (await pageCount(frontLinked)) === frontPages) front = frontLinked;
   prog.finishOne();
 

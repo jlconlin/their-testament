@@ -1409,3 +1409,68 @@ Verified by scanning the text geometry of every page rather than by eye: across
 the Old Testament (158 pages) and the New Testament (196 pages) of a real
 export, no glyph now sits more than 4pt below the text block, which is ordinary
 descender slack.
+
+### An article with no paragraphs crashed the compile (2026-09-18)
+
+Reported as "too large for this browser to lay out" on a real scale test —
+but a Part failing all the way down to a single indivisible article is itself
+the tell: a single article is never big enough to hit the memory ceiling or
+the layout-recursion wall by itself. Reproduced with the real `typst` CLI
+against the failing export (bypassing the browser entirely) and it wasn't
+size at all:
+
+```
+error: array index out of bounds (index: 1, len: 0)
+    ┌─ templates/book.typ:804:11
+    │
+804 │   for p in talk.paragraphs.slice(1) {
+```
+
+`render-article` -- shared by General Conference talks, magazine articles,
+and manual lessons since M12 -- guarded the *first* paragraph with
+`if talk.paragraphs.len() > 0`, but the `for p in talk.paragraphs.slice(1)`
+loop after it was unconditional. `assembleDocuments` deliberately keeps an
+article whose only mark is a note on its *title*, with zero paragraphs, the
+same way a General Conference talk is kept for a note on its kicker (decision:
+"Everything a reader marked now appears"). Typst's `slice` throws on a
+start past the array's end rather than returning empty the way most
+languages' does, so every such article crashed the whole compile outright.
+
+The bug is old, not new -- the identical unconditional `.slice(1)` sat in the
+original `render-gc-part` before M12 ever existed (`git show 307060b~1`), and
+the guarded scripture equivalent two functions over (`ch.verses.slice(1)`,
+already wrapped in `if ch.verses.len() > 0`) shows what the code should have
+looked like. It just never fired: a highlight almost always requires actual
+paragraph content, so a paragraph-less General Conference talk is rare.
+Manuals and magazines made it common -- five in this one export -- because a
+tag on a lesson's own title, with nothing highlighted in its body, is a
+completely ordinary thing to do.
+
+Fixed by moving the loop inside the same guard the first paragraph already
+had. Re-verified by replaying `renderBookAuto`'s exact split/compile logic
+against the real `typst` CLI for every one of the 11 Parts in the failing
+export (13 pieces total) and then doing the actual merge: 2,854 pages, no
+compile failures.
+
+**The failure was also misdiagnosed by the tool itself, and that's now
+fixed too.** `runChunk`'s Worker channel carries the real compiler error back
+from `compile-worker.js`, but the caller only ever checked
+`e.data?.ok` and threw the error away -- so a genuine template bug and a
+genuine size problem looked identical: both resolved to `null`, both got
+"fixed" by splitting (which cannot repair a bug, so it split all the way
+down to one unit and failed the same way every time), and the person
+generating a book saw only "too large... can't be divided any further" with
+the real cause never reaching the console. `runChunk` now logs the compiler's
+own message on every failure and threads it into the thrown error, so the
+next real bug shows itself instead of hiding behind a plausible-but-wrong
+diagnosis.
+
+**One more spec-compliance gap found while verifying the merge, unrelated to
+the crash:** `mergePdf.ts`'s hand-built outline tree never set `/Parent` on
+any bookmark -- required by PDF 32000-1:2008 §12.3.3. `mutool show ... outline`
+caught it directly ("Bad or missing parent pointer in outline tree,
+repairing") and recovered fine, which is presumably why it went unnoticed:
+every reader tested so far tolerates it. Fixed by pre-registering the root
+`/Outlines` dictionary so every item, at every level, can point back to its
+true parent. Re-verified: the same 2,854-page merge now parses with no
+repair needed.

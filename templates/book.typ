@@ -801,8 +801,15 @@
       unit(tkey + "|" + talk.paragraphs.first().ref, talk.paragraphs.first(), kind: "para", cw: gcw)
     }
   })
-  for p in talk.paragraphs.slice(1) {
-    unit(tkey + "|" + p.ref, p, kind: "para", cw: gcw)
+  // An article whose only mark was a note on its title has no paragraphs at
+  // all (assembleDocuments still includes it, for the note's sake) -- and
+  // Typst's `slice` throws on an out-of-range start, unlike a language where
+  // it would just come back empty. Guarded the same way the scripture
+  // chapter case above already is.
+  if talk.paragraphs.len() > 1 {
+    for p in talk.paragraphs.slice(1) {
+      unit(tkey + "|" + p.ref, p, kind: "para", cw: gcw)
+    }
   }
 }
 
