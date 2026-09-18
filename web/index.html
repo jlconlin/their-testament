@@ -886,7 +886,14 @@ function renderReport(summary, unplacedCount, outOfScope) {
     reportEl.append(el("ul", { className: "report-notes" }, notes.map((t) => el("li", { textContent: t }))));
   }
 
-  const rows = [...summary.warningRows.map((d) => [d, "cat-warning"]), ...summary.failedRows.map((d) => [d, "cat-failed"])];
+  // "source-unavailable" is already summarized above in plain language (a
+  // count, explained). Five hundred rows of "no longer published" with an
+  // annotation ID nobody can act on adds nothing but the appearance of five
+  // hundred problems -- so it's counted, not listed.
+  const rows = [
+    ...summary.warningRows.filter((d) => d.category !== "source-unavailable").map((d) => [d, "cat-warning"]),
+    ...summary.failedRows.map((d) => [d, "cat-failed"]),
+  ];
   if (!rows.length) return;
   const table = el("table", {}, [
     el("tr", {}, [

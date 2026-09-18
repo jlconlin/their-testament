@@ -1574,3 +1574,46 @@ a Part's sections are counted, split across pieces, or coalesced back
 together after a merge; a category that straddles a split point folds back
 into one bookmark by the same `coalesceAdjacent` recursion that already
 handles a divided General Conference Part.
+
+### The paragraph mark was never counted as a leading word (2026-09-18)
+
+A second real run, same seven "off by x words" warnings from before, still
+there. Re-checked each one against its raw HTML rather than assuming the
+earlier fix was the whole story.
+
+Matthew 21:33 carries `<span class="para-mark">¶ </span>` right after its
+verse number -- the pilcrow King James Version text uses to mark a new
+paragraph mid-chapter. It's stripped from the reading text the same way the
+verse number is, but Gospel Library's own offsets count it as a second
+leading word, and `leadingTokens` only ever accounted for the verse number.
+That put this verse's shifted offset two words past the end (`n+2`) instead
+of one (`n+1`) -- past what the boundary fallback (decisions.md: "Highlights
+ending at the last word...") catches, so it kept failing.
+
+Fixed by counting `.para-mark` as a second leading token when present.
+Verified: Ruth 1:19 and 1 Samuel 21:10 (both already resolved by the earlier
+fix, both also carrying a para-mark) land on the exact same word either way
+-- this is a strictly additive correction, not a reinterpretation of
+something already working. And it isn't only a boundary fix: any *ordinary*,
+mid-verse highlight on a paragraph-mark verse was silently landing one word
+early everywhere it didn't happen to run off the end. This corrects those
+too, invisibly, across the whole corpus -- not just the ones that errored
+loudly enough to be seen.
+
+Six of the seven from before remain unexplained (Matthew 1:16, Matthew 25:1,
+Galatians 2:9, Mosiah 2:21, Moses 4:1, one General Conference paragraph) --
+none carry a para-mark, none share a footnote-marker count, none have more
+than one highlight on the same verse where more than one exists at all
+(checked and ruled out each of those as an explanation). They stay an honest
+fallback.
+
+### The retired-content warning is a count, not a list (2026-09-18)
+
+`source-unavailable` was already a warning rather than a failure, with a
+plain-language count in the report's summary -- but every individual mark
+still showed up as its own row in the detail table below, annotation ID and
+all. On an export where retired manuals account for the bulk of "couldn't be
+placed," that's several hundred rows that look like several hundred
+problems, each one identical and none of them actionable. The summary count
+already says what happened and why; the table now excludes this category
+rather than repeating it in a form that reads as an error.

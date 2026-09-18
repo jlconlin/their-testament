@@ -27,8 +27,19 @@ export function parseVerses(page, chapter) {
         // OT/NT (which carry data-eng-ref) and BoM/D&C/PoGP (which don't).
         const ref = chapter != null ? `${chapter}:${num}` : engRef ?? `${num}`;
         const { text, styles } = extract(p);
-        // the verse number was stripped from `text`, but the offsets still count it
-        verses.push({ ref, vid, aid, num, text, styles, leadingTokens: vnMatch ? 1 : 0 });
+        // A verse that opens a new paragraph within its chapter carries a pilcrow
+        // ("¶ ") right after the verse number -- stripped from `text` same as the
+        // number itself, but Gospel Library's own offsets count it as a second
+        // leading word. Missed, a highlight on such a verse silently lands one
+        // word early everywhere except right at the boundary, where it errors
+        // instead (Matthew 21:33: startOffset landed on n+2, past what the
+        // boundary fallback below catches -- n+1 -- because this token wasn't
+        // being counted at all).
+        const hasParaMark = !!p.querySelector(".para-mark");
+        verses.push({
+            ref, vid, aid, num, text, styles,
+            leadingTokens: (vnMatch ? 1 : 0) + (hasParaMark ? 1 : 0),
+        });
     }
     if (verses.length > 0)
         return verses;
