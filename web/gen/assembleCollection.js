@@ -1,7 +1,6 @@
 import { parseTalk } from "./talk.js";
 import { parseHeadingUnits } from "./verses.js";
-import { assembleUnits, markHeadingUnits } from "./units.js";
-import { parseNote } from "./noteHtml.js";
+import { assembleUnits, markHeadingUnits, unavailableSource } from "./units.js";
 /**
  * A highlight belongs to this document when its URI is the document URI, or
  * the document URI followed by an anchor. A plain `startsWith` would let
@@ -31,27 +30,12 @@ export async function assembleDocuments(annotations, docs, content, keyPrefix, s
             continue;
         const page = await content.tryGet(d.uri);
         if (!page) {
-            // Retired manuals and withdrawn articles really do disappear from
-            // churchofjesuschrist.org. The passage cannot be reproduced, but
-            // whatever the reader wrote about it is theirs and is kept.
-            for (const a of touching) {
-                diags.push({
-                    annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-                    unitRef: d.uri, category: "source-unavailable",
-                    detail: "no longer published on churchofjesuschrist.org",
-                });
-                const body = parseNote(a.note?.content);
-                if (body.length > 0 || a.note?.title || a.tags.length > 0) {
-                    unplacedNotes.push({
-                        annotationId: a.annotationId,
-                        created: (a.created ?? "").slice(0, 10),
-                        source: `${d.refPrefix} — ${d.slug.replace(/-/g, " ")}`,
-                        title: a.note?.title ?? null,
-                        body,
-                        tags: a.tags.map((t) => t.name),
-                    });
-                }
-            }
+            const gone = unavailableSource(touching, {
+                inScope: inDoc(d.uri), unitRef: d.uri,
+                source: `${d.refPrefix} — ${d.slug.replace(/-/g, " ")}`,
+            });
+            diags.push(...gone.diags);
+            unplacedNotes.push(...gone.unplacedNotes);
             continue;
         }
         const parsed = parseTalk(page);
@@ -60,6 +44,7 @@ export async function assembleDocuments(annotations, docs, content, keyPrefix, s
         const dkey = `${keyPrefix}|${d.slug}`;
         const headingMarks = markHeadingUnits(parseHeadingUnits(page), touching);
         const res = assembleUnits(parsed.paragraphs, touching, {
+            pageBody: page.content.body,
             furniturePids: new Set(parsed.furniturePids),
             inScope: inDoc(d.uri),
             label: parsed.title,

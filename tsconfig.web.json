@@ -20,6 +20,7 @@
     "src/segment.ts",
     "src/units.ts",
     "src/diagSummary.ts",
+    "src/reportModel.ts",
     "src/locate.ts",
     "src/noteHtml.ts",
     "src/assemble.ts",

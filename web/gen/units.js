@@ -43,6 +43,40 @@ export function markHeadingUnits(units, anns) {
     return out;
 }
 /**
+ * Marks and notes on a document the Church no longer publishes.
+ *
+ * The page itself is gone, so there is nothing to typeset the passage from --
+ * but a note is the reader's own words, and those don't depend on the Church's
+ * page still existing. Each mark is reported once, as `source-unavailable`
+ * (a count, not a fault), and any note or tag goes to Miscellaneous rather
+ * than vanishing with the page. One shared implementation, because scripture
+ * chapters, conference talks, and every collection document all reach this
+ * same situation and used to handle it three different ways -- two of which
+ * quietly dropped the notes.
+ */
+export function unavailableSource(anns, where) {
+    const diags = [];
+    const unplacedNotes = [];
+    for (const a of anns) {
+        const created = (a.created ?? "").slice(0, 10);
+        for (const h of (a.highlights ?? []).filter(where.inScope)) {
+            diags.push({
+                annotationId: a.annotationId, created, unitRef: where.unitRef,
+                category: "source-unavailable", detail: h.uri,
+            });
+        }
+        const body = parseNote(a.note?.content);
+        if (body.length > 0 || a.note?.title || a.tags.length > 0) {
+            unplacedNotes.push({
+                annotationId: a.annotationId, created, source: where.source,
+                title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
+                unavailable: true,
+            });
+        }
+    }
+    return { diags, unplacedNotes };
+}
+/**
  * Anchors that name a piece of a chapter's furniture rather than a verse.
  * `parseVerses` only ever yields verses, so a highlight on one of these has a
  * pid that exists in the page yet matches nothing in the lookup -- which is
@@ -52,6 +86,8 @@ const HEADING_ANCHOR = /\.(title|title_number|study_intro|study_summary|intro|su
 export function assembleUnits(units, anns, opts) {
     const byAid = new Map(units.map((u) => [u.aid, u]));
     const byVid = new Map(units.map((u) => [u.vid, u]));
+    const isFurniture = (h) => HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
+    const isGone = (h) => opts.pageBody !== undefined && !isFurniture(h) && !opts.pageBody.includes(`data-aid="${h.pid}"`);
     const marksByRef = new Map();
     const notesByRef = new Map();
     const chapterNotes = [];
@@ -93,11 +129,10 @@ export function assembleUnits(units, anns, opts) {
                 // failure to find something. Kept as its own category so it stops
                 // inflating the failure count; a pid-no-match that survives this check
                 // is a genuine miss worth showing.
-                const onFurniture = HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
                 noMatch.push(`${opts.label}: ${h.uri}`);
                 diags.push({
                     annotationId: a.annotationId, created, unitRef: h.pid,
-                    category: onFurniture ? "heading-highlight" : "pid-no-match",
+                    category: isFurniture(h) ? "heading-highlight" : isGone(h) ? "source-unavailable" : "pid-no-match",
                     detail: h.uri,
                 });
                 continue;
@@ -136,7 +171,7 @@ export function assembleUnits(units, anns, opts) {
             // A highlight on the chapter heading, its number, or the study summary
             // is a note about the whole chapter -- we know exactly where it belongs,
             // so keep it here rather than sending it to "Miscellaneous".
-            const allFurniture = hs.length > 0 && hs.every((h) => HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid));
+            const allFurniture = hs.length > 0 && hs.every(isFurniture);
             if (contributes && allFurniture) {
                 diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
                     detail: hs.map((h) => h.uri).join(",") });
@@ -154,12 +189,20 @@ export function assembleUnits(units, anns, opts) {
                     chapterNoteTags.push(t.name);
                 continue;
             }
-            diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
-                detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+            // Every highlight was on text the Church has since removed: the marks
+            // are already counted as source-unavailable above, so a second
+            // "note-no-anchor" row for the same annotation would only be the same
+            // fact reported as a fault. The note is kept either way.
+            const allGone = hs.length > 0 && hs.every(isGone);
+            if (!allGone) {
+                diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
+                    detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+            }
             if (contributes) {
                 unplacedNotes.push({
                     annotationId: a.annotationId, created, source: opts.label,
                     title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
+                    ...(allGone ? { unavailable: true } : {}),
                 });
             }
             continue;

@@ -1,5 +1,5 @@
 import { parseVerses, parseHeadingUnits } from "./verses.js";
-import { assembleUnits, markHeadingUnits } from "./units.js";
+import { assembleUnits, markHeadingUnits, unavailableSource } from "./units.js";
 /** Merge tag entries from every book into one alphabetical index. */
 export function mergeTagIndex(entries) {
     const byTag = new Map();
@@ -42,12 +42,11 @@ export async function assembleScriptureBook(annotations, spec, content) {
     for (const chapter of [...byChapter.keys()].sort((a, b) => a - b)) {
         const page = await content.tryGet(`${spec.base}/${spec.slug}/${chapter}`);
         if (!page) {
-            for (const a of byChapter.get(chapter)) {
-                diags.push({
-                    annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-                    unitRef: `${chapter}`, category: "pid-no-match", detail: "content fetch failed",
-                });
-            }
+            const gone = unavailableSource(byChapter.get(chapter), {
+                inScope: inBook, unitRef: `${chapter}`, source: `${spec.name} ${chapter}`,
+            });
+            diags.push(...gone.diags);
+            unplacedNotes.push(...gone.unplacedNotes);
             continue;
         }
         const verses = parseVerses(page, chapter);
@@ -55,6 +54,7 @@ export async function assembleScriptureBook(annotations, spec, content) {
         const headingMarks = markHeadingUnits(parseHeadingUnits(page), byChapter.get(chapter));
         const res = assembleUnits(verses, byChapter.get(chapter), {
             leadingTokens: 1, // the verse number is word 1 in the source paragraph
+            pageBody: page.content.body,
             inScope: inBook,
             label: `${spec.name} ${chapter}`,
             rangeLabel: (refs) => `${refs[0]}–${refs.at(-1).split(":").at(-1)}`,

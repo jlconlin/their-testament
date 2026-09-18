@@ -1617,3 +1617,61 @@ placed," that's several hundred rows that look like several hundred
 problems, each one identical and none of them actionable. The summary count
 already says what happened and why; the table now excludes this category
 rather than repeating it in a form that reads as an error.
+
+### The completeness report said things twice, and one of them wasn't true (2026-09-18)
+
+Read off a real 19,887-annotation run, the report had four problems, and the
+first was the worst:
+
+- **The headline understated what was missing.** "Nearly everything is in
+  your book. 11 marks are in sources it doesn't cover yet" implied eleven
+  were absent -- while 525 more, on retired pages, and 16 more on a revised
+  manual were also absent, mentioned only lower down. It now accounts for
+  everything not in the book in one place.
+- **It said the same thing twice.** The headline and the paragraph under it
+  both gave the "11". And "525 marks are on retired pages... kept in
+  Miscellaneous" was followed by "63 notes couldn't be attached to a spot...
+  kept in Miscellaneous" -- 60 of those 63 being the very same retired-page
+  notes. Each fact now appears once: marks are counted where they aren't in
+  the book, notes where they're kept.
+- **Nineteen "failures" weren't failures.** All from one manual, the 2011 *For
+  the Strength of Youth*, which the Church has replaced: the pages still
+  resolve but hold no paragraphs at all, so the pids can never match. A
+  highlight that matches no unit is now checked against the page's raw HTML;
+  a pid that appears nowhere in it is retired content (`source-unavailable`),
+  while one that *is* in the page and still wasn't matched stays a genuine
+  `pid-no-match`, because that is a parser gap worth seeing. The redundant
+  `note-no-anchor` row for such an annotation is suppressed; the note itself
+  is still kept.
+- **"Anything you wrote is kept in Miscellaneous" was true for retired
+  manuals and false for retired scripture chapters and General Conference
+  talks**, which recorded the marks and dropped the notes. All three (and
+  every collection document) now share `unavailableSource()`.
+
+**A real bug found while checking the fix in the browser.** When *every*
+document in a collection Part was retired, `assembleBook` discarded the Part's
+diagnostics and its notes along with the empty Part -- so a reader whose only
+manual marks were on retired pages lost those notes with no trace. Never
+triggered on the real export (other manuals had content). It surfaced only
+because a synthetic export was pushed through the actual page rather than
+just through Node. Diagnostics and notes are now kept whether or not anything
+typeset; a General Conference conference whose every talk is retired no
+longer prints an empty heading either.
+
+The report's wording moved out of `index.html` into `src/reportModel.ts`, a
+pure function of the diagnostics, so it can be read against a real export in
+Node instead of only in a browser. The count on the real export --
+614 retired -- was cross-checked against a count that doesn't use the
+assembler at all: 598 highlights on 43 pages that no longer exist, plus 16 on
+paragraphs the Church removed. (The cross-check first disagreed by 18: 13
+highlights the assembler correctly matches by paragraph anchor even though
+Gospel Library's internal id changed, and 5 that were my own filename-escaping
+error. Worth recording because the first instinct was to trust the assembler.)
+
+Marks on retired pages now count per highlight, not per annotation, which is
+why 525 became 614 with no change in what was lost.
+
+One build trap, recorded so it isn't rediscovered: `tsconfig.web.json` lists
+its files explicitly, and tsc emits only those plus whatever they import. A
+module imported *only by index.html* is never emitted, and the page fails to
+load with no build error. `reportModel.ts` is now in that list.

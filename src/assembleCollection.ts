@@ -10,8 +10,7 @@
 import type { Annotation, ContentSource, DocPart, DocSection, DocTalk, Highlight } from "./types.ts";
 import { parseTalk } from "./talk.ts";
 import { parseHeadingUnits } from "./verses.ts";
-import { assembleUnits, markHeadingUnits, type Diag, type UnplacedNote } from "./units.ts";
-import { parseNote } from "./noteHtml.ts";
+import { assembleUnits, markHeadingUnits, unavailableSource, type Diag, type UnplacedNote } from "./units.ts";
 import type { TagEntry } from "./assemble.ts";
 
 export interface DocSpec {
@@ -91,27 +90,12 @@ export async function assembleDocuments(
 
     const page = await content.tryGet(d.uri);
     if (!page) {
-      // Retired manuals and withdrawn articles really do disappear from
-      // churchofjesuschrist.org. The passage cannot be reproduced, but
-      // whatever the reader wrote about it is theirs and is kept.
-      for (const a of touching) {
-        diags.push({
-          annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-          unitRef: d.uri, category: "source-unavailable",
-          detail: "no longer published on churchofjesuschrist.org",
-        });
-        const body = parseNote(a.note?.content);
-        if (body.length > 0 || a.note?.title || a.tags.length > 0) {
-          unplacedNotes.push({
-            annotationId: a.annotationId,
-            created: (a.created ?? "").slice(0, 10),
-            source: `${d.refPrefix} — ${d.slug.replace(/-/g, " ")}`,
-            title: a.note?.title ?? null,
-            body,
-            tags: a.tags.map((t) => t.name),
-          });
-        }
-      }
+      const gone = unavailableSource(touching, {
+        inScope: inDoc(d.uri), unitRef: d.uri,
+        source: `${d.refPrefix} — ${d.slug.replace(/-/g, " ")}`,
+      });
+      diags.push(...gone.diags);
+      unplacedNotes.push(...gone.unplacedNotes);
       continue;
     }
     const parsed = parseTalk(page);
@@ -120,6 +104,7 @@ export async function assembleDocuments(
 
     const headingMarks = markHeadingUnits(parseHeadingUnits(page), touching);
     const res = assembleUnits(parsed.paragraphs, touching, {
+      pageBody: page.content.body,
       furniturePids: new Set(parsed.furniturePids),
       inScope: inDoc(d.uri),
       label: parsed.title,

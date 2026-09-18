@@ -1,7 +1,7 @@
 import type { Annotation, ContentSource, DocConference, DocPart, DocTalk, Highlight } from "./types.ts";
 import { parseTalk } from "./talk.ts";
 import { parseHeadingUnits } from "./verses.ts";
-import { assembleUnits, markHeadingUnits, type Diag, type UnplacedNote } from "./units.ts";
+import { assembleUnits, markHeadingUnits, unavailableSource, type Diag, type UnplacedNote } from "./units.ts";
 import type { TagEntry } from "./assemble.ts";
 
 const MONTHS: Record<string, string> = { "04": "April", "10": "October" };
@@ -58,13 +58,13 @@ export async function assembleConferencePart(
     for (const slug of ordered) {
       const page = await content.tryGet(`${confPrefix}${slug}`);
       if (!page) {
-        for (const a of byTalk.get(slug)!) {
-          diags.push({
-            annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-            unitRef: `${year}-${month}/${slug}`, category: "source-unavailable",
-            detail: "no longer published on churchofjesuschrist.org",
-          });
-        }
+        const gone = unavailableSource(byTalk.get(slug)!, {
+          inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
+          unitRef: `${year}-${month}/${slug}`,
+          source: `General Conference ${MONTHS[month] ?? month} ${year} — ${slug.replace(/-/g, " ")}`,
+        });
+        diags.push(...gone.diags);
+        unplacedNotes.push(...gone.unplacedNotes);
         continue;
       }
       const parsed = parseTalk(page);
@@ -73,6 +73,7 @@ export async function assembleConferencePart(
       // the talk's kicker, but only if this reader actually marked it
       const headingMarks = markHeadingUnits(parseHeadingUnits(page), byTalk.get(slug)!);
       const res = assembleUnits(parsed.paragraphs, byTalk.get(slug)!, {
+        pageBody: page.content.body,
         furniturePids: new Set(parsed.furniturePids),
         inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
         label: `${parsed.title}`,
@@ -117,6 +118,8 @@ export async function assembleConferencePart(
       }
     }
 
+    // every marked talk retired -> nothing to typeset, so no heading either
+    if (talks.length === 0) continue;
     conferences.push({
       key: `${year}-${month}`,
       label: `${MONTHS[month] ?? month} ${year}`,

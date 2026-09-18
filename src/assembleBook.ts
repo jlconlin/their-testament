@@ -35,6 +35,14 @@ export interface AssembleBookResult {
    * categories are now Parts of their own (M12); this count is what remains,
    * and it is reported rather than hidden.
    */
+  /**
+   * How many notes in Miscellaneous are there because the page they were
+   * written on is no longer published. The rest (`book.unplacedNotes.length`
+   * minus this) are notes whose passage exists but couldn't be matched. The
+   * report keeps the two apart -- otherwise the same retired-page note is
+   * described once as unavailable and again as "couldn't be attached".
+   */
+  unplacedFromUnavailable: number;
   outOfScope: {
     highlights: number;
     /** annotations with a written note or tags that landed nowhere */
@@ -199,7 +207,8 @@ export async function assembleBook(
   ))].sort().map((s) => ({ year: s.slice(0, 4), month: s.slice(5) }));
   if (confs.length) {
     const gc = await assembleConferencePart(scope.gc, confs, content);
-    parts.push(gc.part);
+    // no empty "General Conference" Part when every marked talk has been retired
+    if (gc.part.kind === "gc" && gc.part.conferences.length) parts.push(gc.part);
     allTags.push(...gc.tagEntries);
     allDiags.push(...gc.diags);
     allUnplacedNotes.push(...gc.unplacedNotes);
@@ -269,12 +278,15 @@ export async function assembleBook(
   ] as const) {
     if (!sections.length) continue;
     const res = await assembleCollectionPart(annotations, sections, content, defn.key, defn.title);
-    if (res.part.kind === "collection" && res.part.sections.length) {
-      parts.push(res.part);
-      allTags.push(...res.tagEntries);
-      allDiags.push(...res.diags);
-      allUnplacedNotes.push(...res.unplacedNotes);
-    }
+    // Diagnostics and notes are kept whether or not anything typeset. A Part
+    // with no sections is one whose every document has been retired -- and
+    // that is exactly when the notes matter most, because they are all that
+    // is left of what the reader wrote. Gating these on the Part having
+    // content quietly dropped them together with the empty Part.
+    allTags.push(...res.tagEntries);
+    allDiags.push(...res.diags);
+    allUnplacedNotes.push(...res.unplacedNotes);
+    if (res.part.kind === "collection" && res.part.sections.length) parts.push(res.part);
   }
 
   // ---- 3b. notebooks ----------------------------------------------------
@@ -327,6 +339,7 @@ export async function assembleBook(
     book,
     diags: allDiags,
     uncategorised: scope.uncategorised,
+    unplacedFromUnavailable: allUnplacedNotes.filter((n) => n.unavailable).length,
     outOfScope: {
       highlights: outHighlights,
       annotationsWithContent: outWithContent,

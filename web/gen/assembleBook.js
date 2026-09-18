@@ -158,7 +158,9 @@ export async function assembleBook(annotations, content, opts = {}) {
             .map((m) => `${m[1]}-${m[2]}`)))].sort().map((s) => ({ year: s.slice(0, 4), month: s.slice(5) }));
     if (confs.length) {
         const gc = await assembleConferencePart(scope.gc, confs, content);
-        parts.push(gc.part);
+        // no empty "General Conference" Part when every marked talk has been retired
+        if (gc.part.kind === "gc" && gc.part.conferences.length)
+            parts.push(gc.part);
         allTags.push(...gc.tagEntries);
         allDiags.push(...gc.diags);
         allUnplacedNotes.push(...gc.unplacedNotes);
@@ -224,12 +226,16 @@ export async function assembleBook(annotations, content, opts = {}) {
         if (!sections.length)
             continue;
         const res = await assembleCollectionPart(annotations, sections, content, defn.key, defn.title);
-        if (res.part.kind === "collection" && res.part.sections.length) {
+        // Diagnostics and notes are kept whether or not anything typeset. A Part
+        // with no sections is one whose every document has been retired -- and
+        // that is exactly when the notes matter most, because they are all that
+        // is left of what the reader wrote. Gating these on the Part having
+        // content quietly dropped them together with the empty Part.
+        allTags.push(...res.tagEntries);
+        allDiags.push(...res.diags);
+        allUnplacedNotes.push(...res.unplacedNotes);
+        if (res.part.kind === "collection" && res.part.sections.length)
             parts.push(res.part);
-            allTags.push(...res.tagEntries);
-            allDiags.push(...res.diags);
-            allUnplacedNotes.push(...res.unplacedNotes);
-        }
     }
     // ---- 3b. notebooks ----------------------------------------------------
     const nb = await assembleNotebooksPart(annotations, content);
@@ -278,6 +284,7 @@ export async function assembleBook(annotations, content, opts = {}) {
         book,
         diags: allDiags,
         uncategorised: scope.uncategorised,
+        unplacedFromUnavailable: allUnplacedNotes.filter((n) => n.unavailable).length,
         outOfScope: {
             highlights: outHighlights,
             annotationsWithContent: outWithContent,

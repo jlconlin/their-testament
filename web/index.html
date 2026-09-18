@@ -249,7 +249,7 @@
   #report { margin-top:1.4em; font-size:1rem; }
   #make .report-headline { font-family:var(--disp); font-size:1.2rem; margin:0 0 .5em; }
   #make .report-notes { margin:0 0 .8em; padding-left:1.1em; color:var(--ink-soft); font-size:.95rem; }
-  #make .report-outside { color:var(--ink-soft); font-size:.95rem; margin:0 0 .8em; }
+  #make .report-subhead { margin:1.1em 0 .3em; font-size:.78rem; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); }
   #make .report-notes li { margin:.25em 0; }
   #report summary { cursor:pointer; font-family:var(--sans); font-size:.85rem; color:var(--ink-soft); }
   #report table { border-collapse:collapse; margin-top:.6em; width:100%; }
@@ -759,6 +759,7 @@ import { ContentClientBrowser } from "./gen/browserContent.js";
 import { assembleBook } from "./gen/assembleBook.js";
 import { planContentUris } from "./gen/contentPlan.js";
 import { renderBookAuto } from "./gen/browserRender.js";
+import { buildReportModel } from "./gen/reportModel.js";
 import { summarizeDiags } from "./gen/diagSummary.js";
 
 // The generator is ES modules all the way down, so it only works over http(s).
@@ -795,22 +796,10 @@ function el(tag, props, children) {
   return node;
 }
 
-// Plain-language translations -- "pid-no-match" means nothing to a real user.
-// Gospel Library's top-level URI segments, in words a reader would use.
-const SOURCE_LABEL = {
-  "ensign": "the Ensign",
-  "liahona": "the Liahona",
-  "new-era": "the New Era",
-  "friend": "the Friend",
-  "ftsoy": "For the Strength of Youth",
-  "manual": "manuals and lesson material",
-  "broadcasts": "broadcasts",
-  "ya-weekly": "YA Weekly",
-  "youth": "the youth curriculum",
-  "scriptures": "scripture front matter",
-  "video": "videos",
-};
-
+// Plain-language names for the detail rows. The report's own wording -- what
+// is in the book, what isn't, and why -- lives in src/reportModel.ts, where it
+// is a pure function of the diagnostics and can be read against a real export
+// without running a whole book through a browser.
 const CATEGORY_LABEL = {
   "pid-no-match": "this highlight sat on a paragraph the tool can't read, so it isn't shown",
   "empty-span": "the highlighted words couldn't be pinned down — the whole verse is marked instead",
@@ -819,88 +808,42 @@ const CATEGORY_LABEL = {
   "note-parse-empty": "this note was empty",
   "heading-highlight": "highlighted on a chapter heading, where there's no verse to mark",
   "chapter-note": "written on a chapter heading — placed at the top of that chapter",
-  "source-unavailable": "this page is no longer published on churchofjesuschrist.org — any note you wrote on it is kept in Miscellaneous",
+  "source-unavailable": "this page is no longer published on churchofjesuschrist.org",
 };
 
 /**
  * The report a person sees after making their keepsake.
  *
- * It used to lead with "59 failed", which frightened people about nothing:
- * almost every "failure" was a highlight on a chapter heading (no verse to
- * mark), an empty note, or a note safely kept in Miscellaneous. Someone who
- * has just made a book about a parent should not have to decode a category
- * table to find out whether their marks survived. So: lead with the answer,
- * keep every detail, and put it one click away.
+ * It used to lead with "59 failed", which frightened people about nothing;
+ * then it swung to reassurance that left things out. The rule now is that
+ * every fact appears once and nothing is phrased as a fault unless something
+ * went wrong: what isn't in the book, stated as counts; what is, but is worth
+ * a sentence; and the few rows still worth inspecting, one click away.
  */
-function renderReport(summary, unplacedCount, outOfScope) {
+function renderReport(summary, unplacedCount, unplacedFromUnavailable, outOfScope) {
   reportEl.hidden = false;
   reportEl.replaceChildren();
 
-  const n = (k) => summary.byCategory[k] ?? 0;
-  const notShown = n("pid-no-match");        // the only genuine loss
-  const whole = n("whole-unit-fallback") + n("empty-span");
+  const m = buildReportModel({ summary, unplacedCount, unplacedFromUnavailable, outOfScope });
+  reportEl.append(el("p", { className: "report-headline", textContent: m.headline }));
 
-  // Say what is missing, rather than quoting a ratio that needs decoding. A
-  // verse marked in full is still in the book; a highlight on a heading was
-  // never a verse. The only real absence is a highlight we couldn't render.
-  // Out-of-scope marks never reach the diagnostics -- they are filtered out
-  // before assembly -- so the headline has to account for them explicitly or
-  // it will tell someone who reads the Ensign that nothing was left out.
-  const outside = outOfScope?.highlights ?? 0;
-  const headline =
-    outside > 0
-      ? `Nearly everything you marked is in your book. ` +
-        `${outside.toLocaleString()} mark${outside === 1 ? " is" : "s are"} in sources it doesn't cover yet.`
-      : notShown === 0
-        ? `Everything you marked is in your book — all ${summary.total.toLocaleString()} of them.`
-        : `Everything you marked is in your book, apart from ${notShown} highlight${notShown === 1 ? "" : "s"} ` +
-          `on a page this tool can't read.`;
-  reportEl.append(el("p", { className: "report-headline", textContent: headline }));
+  const section = (title, items) => {
+    if (!items.length) return;
+    reportEl.append(
+      el("p", { className: "report-subhead", textContent: title }),
+      el("ul", { className: "report-notes" }, items.map((t) => el("li", { textContent: t }))),
+    );
+  };
+  section("What isn't in your book", m.left);
+  section("Worth knowing", m.handled);
 
-  if (outside > 0) {
-    const top = (outOfScope.bySource ?? []).slice(0, 4)
-      .map(([name, n]) => `${SOURCE_LABEL[name] ?? name} (${n.toLocaleString()})`).join(", ");
-    const withContent = outOfScope.annotationsWithContent ?? 0;
-    reportEl.append(el("p", { className: "report-outside", textContent:
-      `Their Testament covers scripture, general conference, the study helps, the magazines, and the manuals. ` +
-      `${outside.toLocaleString()} of your marks are elsewhere — ${top}` +
-      (withContent ? ` — including ${withContent.toLocaleString()} with a note or tag of your own` : "") +
-      `. Those aren't in the book. Your export file keeps every one of them, so nothing is lost.` }));
-  }
-
-  const notes = [];
-  if (whole) notes.push(`${whole.toLocaleString()} verse${whole === 1 ? " is" : "s are"} marked in full, ` +
-    `because the exact words you selected couldn't be pinned down.`);
-  if (n("heading-highlight")) notes.push(`${n("heading-highlight")} highlight${n("heading-highlight") === 1 ? " was" : "s were"} ` +
-    `on a chapter heading or summary. Where you marked words, those words are shown beneath the heading; ` +
-    `where you chose no color, the tag or note carries on its own.`);
-  if (n("source-unavailable")) notes.push(`${n("source-unavailable").toLocaleString()} mark${n("source-unavailable") === 1 ? " is" : "s are"} ` +
-    `on pages the Church no longer publishes — retired manuals, mostly. The passage can't be reproduced, ` +
-    `but anything you wrote about it is kept in Miscellaneous.`);
-  if (n("chapter-note")) notes.push(`${n("chapter-note")} note${n("chapter-note") === 1 ? "" : "s"} written on a chapter heading ` +
-    `${n("chapter-note") === 1 ? "sits" : "sit"} at the top of that chapter.`);
-  if (unplacedCount) notes.push(`${unplacedCount} note${unplacedCount === 1 ? "" : "s"} couldn't be attached to a spot, ` +
-    `so ${unplacedCount === 1 ? "it's" : "they're"} kept in "Miscellaneous" near the back rather than dropped.`);
-
-  if (notes.length) {
-    reportEl.append(el("ul", { className: "report-notes" }, notes.map((t) => el("li", { textContent: t }))));
-  }
-
-  // "source-unavailable" is already summarized above in plain language (a
-  // count, explained). Five hundred rows of "no longer published" with an
-  // annotation ID nobody can act on adds nothing but the appearance of five
-  // hundred problems -- so it's counted, not listed.
-  const rows = [
-    ...summary.warningRows.filter((d) => d.category !== "source-unavailable").map((d) => [d, "cat-warning"]),
-    ...summary.failedRows.map((d) => [d, "cat-failed"]),
-  ];
-  if (!rows.length) return;
+  if (!m.rows.length) return;
   const table = el("table", {}, [
     el("tr", {}, [
       el("td", { innerHTML: "<b>ref</b>" }), el("td", { innerHTML: "<b>what happened</b>" }),
       el("td", { innerHTML: "<b>detail</b>" }), el("td", { innerHTML: "<b>annotation id</b>" }),
     ]),
-    ...rows.map(([d, level]) => el("tr", { className: level }, [
+    ...m.rows.map(({ diag: d, level }) => el("tr", { className: level }, [
       el("td", { textContent: d.unitRef }),
       el("td", { textContent: CATEGORY_LABEL[d.category] ?? d.category }),
       el("td", { textContent: d.detail ?? "" }),
@@ -908,7 +851,7 @@ function renderReport(summary, unplacedCount, outOfScope) {
     ])),
   ]);
   reportEl.append(el("details", {}, [
-    el("summary", { textContent: `Show the ${rows.length} row${rows.length === 1 ? "" : "s"} behind this` }),
+    el("summary", { textContent: `Show the ${m.rows.length} row${m.rows.length === 1 ? "" : "s"} behind this` }),
     table,
   ]));
 }
@@ -1029,11 +972,11 @@ goButton.addEventListener("click", async () => {
 
     log("assembling book…");
     stage = "assembling";
-    const { book, diags, uncategorised, outOfScope } = await assembleBook(envelope.annotations, content, { title, personName, margins });
+    const { book, diags, uncategorised, outOfScope, unplacedFromUnavailable } = await assembleBook(envelope.annotations, content, { title, personName, margins });
     progress.remove();
     log(`assembled ${book.parts.length} part(s), ${content.fetched} fetched / ${content.cacheHits} cached`);
     if (uncategorised.length) log(`${uncategorised.length} annotation(s) could not be categorised`);
-    renderReport(summarizeDiags(diags), (book.unplacedNotes ?? []).length, outOfScope);
+    renderReport(summarizeDiags(diags), (book.unplacedNotes ?? []).length, unplacedFromUnavailable, outOfScope);
 
     setStatus(logEl.textContent + "\nfetching Typst template…");
     const mainTypst = await fetch("./gen/book.typ").then((r) => r.text());

@@ -2,7 +2,7 @@ import type {
   Annotation, ContentSource, DocChapter, DocPart, Highlight, TagIndexEntry,
 } from "./types.ts";
 import { parseVerses, parseHeadingUnits } from "./verses.ts";
-import { assembleUnits, markHeadingUnits, type Diag, type UnplacedNote } from "./units.ts";
+import { assembleUnits, markHeadingUnits, unavailableSource, type Diag, type UnplacedNote } from "./units.ts";
 
 export type { TagIndexEntry };
 
@@ -80,12 +80,11 @@ export async function assembleScriptureBook(
   for (const chapter of [...byChapter.keys()].sort((a, b) => a - b)) {
     const page = await content.tryGet(`${spec.base}/${spec.slug}/${chapter}`);
     if (!page) {
-      for (const a of byChapter.get(chapter)!) {
-        diags.push({
-          annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-          unitRef: `${chapter}`, category: "pid-no-match", detail: "content fetch failed",
-        });
-      }
+      const gone = unavailableSource(byChapter.get(chapter)!, {
+        inScope: inBook, unitRef: `${chapter}`, source: `${spec.name} ${chapter}`,
+      });
+      diags.push(...gone.diags);
+      unplacedNotes.push(...gone.unplacedNotes);
       continue;
     }
     const verses = parseVerses(page, chapter);
@@ -94,6 +93,7 @@ export async function assembleScriptureBook(
 
     const res = assembleUnits(verses, byChapter.get(chapter)!, {
       leadingTokens: 1, // the verse number is word 1 in the source paragraph
+      pageBody: page.content.body,
       inScope: inBook,
       label: `${spec.name} ${chapter}`,
       rangeLabel: (refs) => `${refs[0]}–${refs.at(-1)!.split(":").at(-1)}`,

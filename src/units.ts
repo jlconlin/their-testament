@@ -86,6 +86,52 @@ export interface UnplacedNote {
   title: string | null;
   body: NoteNode[];
   tags: string[];
+  /**
+   * The passage this note was written on is no longer published, as opposed
+   * to a passage that exists but couldn't be matched. The completeness report
+   * needs the difference: without it, one retired page's notes are described
+   * twice -- once as "on a page the Church no longer publishes", again as
+   * "couldn't be attached to a spot".
+   */
+  unavailable?: boolean;
+}
+
+/**
+ * Marks and notes on a document the Church no longer publishes.
+ *
+ * The page itself is gone, so there is nothing to typeset the passage from --
+ * but a note is the reader's own words, and those don't depend on the Church's
+ * page still existing. Each mark is reported once, as `source-unavailable`
+ * (a count, not a fault), and any note or tag goes to Miscellaneous rather
+ * than vanishing with the page. One shared implementation, because scripture
+ * chapters, conference talks, and every collection document all reach this
+ * same situation and used to handle it three different ways -- two of which
+ * quietly dropped the notes.
+ */
+export function unavailableSource(
+  anns: Annotation[],
+  where: { inScope: (h: Highlight) => boolean; unitRef: string; source: string },
+): { diags: Diag[]; unplacedNotes: UnplacedNote[] } {
+  const diags: Diag[] = [];
+  const unplacedNotes: UnplacedNote[] = [];
+  for (const a of anns) {
+    const created = (a.created ?? "").slice(0, 10);
+    for (const h of (a.highlights ?? []).filter(where.inScope)) {
+      diags.push({
+        annotationId: a.annotationId, created, unitRef: where.unitRef,
+        category: "source-unavailable", detail: h.uri,
+      });
+    }
+    const body = parseNote(a.note?.content);
+    if (body.length > 0 || a.note?.title || a.tags.length > 0) {
+      unplacedNotes.push({
+        annotationId: a.annotationId, created, source: where.source,
+        title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
+        unavailable: true,
+      });
+    }
+  }
+  return { diags, unplacedNotes };
 }
 
 export interface UnitsResult {
@@ -139,10 +185,23 @@ export function assembleUnits(
      * way to tell.
      */
     furniturePids?: Set<string>;
+    /**
+     * The page's raw HTML. Lets a highlight that matches no unit be told apart
+     * from one whose paragraph no longer exists: when the pid appears nowhere
+     * in the page, the Church has revised or replaced the text (the 2011 For
+     * the Strength of Youth pages still resolve, but now hold no paragraphs at
+     * all) and there is nothing to be found -- retired content, not a parser
+     * gap. When it *is* in the page and still wasn't matched, that is a real
+     * miss and stays a failure.
+     */
+    pageBody?: string;
   },
 ): UnitsResult {
   const byAid = new Map(units.map((u) => [u.aid, u]));
   const byVid = new Map(units.map((u) => [u.vid, u]));
+  const isFurniture = (h: Highlight) => HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
+  const isGone = (h: Highlight) =>
+    opts.pageBody !== undefined && !isFurniture(h) && !opts.pageBody.includes(`data-aid="${h.pid}"`);
   const marksByRef = new Map<string, Mark[]>();
   const notesByRef = new Map<string, Note[]>();
   const chapterNotes: Note[] = [];
@@ -181,11 +240,10 @@ export function assembleUnits(
         // failure to find something. Kept as its own category so it stops
         // inflating the failure count; a pid-no-match that survives this check
         // is a genuine miss worth showing.
-        const onFurniture = HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid);
         noMatch.push(`${opts.label}: ${h.uri}`);
         diags.push({
           annotationId: a.annotationId, created, unitRef: h.pid,
-          category: onFurniture ? "heading-highlight" : "pid-no-match",
+          category: isFurniture(h) ? "heading-highlight" : isGone(h) ? "source-unavailable" : "pid-no-match",
           detail: h.uri,
         });
         continue;
@@ -224,8 +282,7 @@ export function assembleUnits(
       // A highlight on the chapter heading, its number, or the study summary
       // is a note about the whole chapter -- we know exactly where it belongs,
       // so keep it here rather than sending it to "Miscellaneous".
-      const allFurniture = hs.length > 0 && hs.every((h) =>
-        HEADING_ANCHOR.test(h.uri ?? "") || !!opts.furniturePids?.has(h.pid));
+      const allFurniture = hs.length > 0 && hs.every(isFurniture);
       if (contributes && allFurniture) {
         diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "chapter-note",
           detail: hs.map((h) => h.uri).join(",") });
@@ -243,12 +300,20 @@ export function assembleUnits(
         continue;
       }
 
-      diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
-        detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+      // Every highlight was on text the Church has since removed: the marks
+      // are already counted as source-unavailable above, so a second
+      // "note-no-anchor" row for the same annotation would only be the same
+      // fact reported as a fault. The note is kept either way.
+      const allGone = hs.length > 0 && hs.every(isGone);
+      if (!allGone) {
+        diags.push({ annotationId: a.annotationId, created, unitRef: "-", category: "note-no-anchor",
+          detail: (a.highlights ?? []).map((h) => h.uri).join(",") });
+      }
       if (contributes) {
         unplacedNotes.push({
           annotationId: a.annotationId, created, source: opts.label,
           title: a.note?.title ?? null, body, tags: a.tags.map((t) => t.name),
+          ...(allGone ? { unavailable: true } : {}),
         });
       }
       continue;

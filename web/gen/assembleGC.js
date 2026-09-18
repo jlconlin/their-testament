@@ -1,6 +1,6 @@
 import { parseTalk } from "./talk.js";
 import { parseHeadingUnits } from "./verses.js";
-import { assembleUnits, markHeadingUnits } from "./units.js";
+import { assembleUnits, markHeadingUnits, unavailableSource } from "./units.js";
 const MONTHS = { "04": "April", "10": "October" };
 function talkOrder(confBody) {
     const slugs = confBody.match(/\/general-conference\/\d{4}\/\d{2}\/([a-z0-9-]+)/g) ?? [];
@@ -48,13 +48,13 @@ export async function assembleConferencePart(annotations, years, content, partKe
         for (const slug of ordered) {
             const page = await content.tryGet(`${confPrefix}${slug}`);
             if (!page) {
-                for (const a of byTalk.get(slug)) {
-                    diags.push({
-                        annotationId: a.annotationId, created: (a.created ?? "").slice(0, 10),
-                        unitRef: `${year}-${month}/${slug}`, category: "source-unavailable",
-                        detail: "no longer published on churchofjesuschrist.org",
-                    });
-                }
+                const gone = unavailableSource(byTalk.get(slug), {
+                    inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
+                    unitRef: `${year}-${month}/${slug}`,
+                    source: `General Conference ${MONTHS[month] ?? month} ${year} — ${slug.replace(/-/g, " ")}`,
+                });
+                diags.push(...gone.diags);
+                unplacedNotes.push(...gone.unplacedNotes);
                 continue;
             }
             const parsed = parseTalk(page);
@@ -62,6 +62,7 @@ export async function assembleConferencePart(annotations, years, content, partKe
             // the talk's kicker, but only if this reader actually marked it
             const headingMarks = markHeadingUnits(parseHeadingUnits(page), byTalk.get(slug));
             const res = assembleUnits(parsed.paragraphs, byTalk.get(slug), {
+                pageBody: page.content.body,
                 furniturePids: new Set(parsed.furniturePids),
                 inScope: (h) => inConf(h) && (h.uri ?? "").includes(`/${slug}`),
                 label: `${parsed.title}`,
@@ -102,6 +103,9 @@ export async function assembleConferencePart(annotations, years, content, partKe
                 });
             }
         }
+        // every marked talk retired -> nothing to typeset, so no heading either
+        if (talks.length === 0)
+            continue;
         conferences.push({
             key: `${year}-${month}`,
             label: `${MONTHS[month] ?? month} ${year}`,
