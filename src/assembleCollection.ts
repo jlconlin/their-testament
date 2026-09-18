@@ -39,6 +39,8 @@ export interface SectionSpec {
   label: string;
   issues?: IssueSpec[];
   docs?: DocSpec[];
+  /** carried through to the DocSection unchanged -- see DocSection.category */
+  category?: string;
 }
 
 export interface CollectionResult {
@@ -182,10 +184,10 @@ export async function assembleCollectionPart(
         const talks = await build(iss.docs, `${partKey}|${sec.key}|${iss.key}`);
         if (talks.length) issues.push({ key: iss.key, label: iss.label, talks });
       }
-      if (issues.length) out.push({ key: sec.key, label: sec.label, issues });
+      if (issues.length) out.push({ key: sec.key, label: sec.label, issues, category: sec.category });
     } else {
       const entries = await build(sec.docs ?? [], `${partKey}|${sec.key}`);
-      if (entries.length) out.push({ key: sec.key, label: sec.label, entries });
+      if (entries.length) out.push({ key: sec.key, label: sec.label, entries, category: sec.category });
     }
   }
 

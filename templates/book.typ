@@ -569,9 +569,30 @@
     }
   }
   if part.kind == "collection" {
+    // Manuals group sibling sections under a category banner (Come, Follow
+    // Me / Seminary and Institute / ...); other collections leave `category`
+    // unset and render exactly as before -- `has-categories` is a per-Part
+    // switch, not a per-section one, so Scripture Helps and Magazines are
+    // untouched by any of this.
+    let has-categories = part.sections.any(s => s.at("category", default: none) != none)
+    let curcat = none
     for sec in part.sections {
-      block(above: 0.75em, below: 0.2em,
-        text(font: sans, size: 10pt, weight: "medium", tracking: 0.1em, fill: rgb("#4a4238"))[#sec.label])
+      if has-categories {
+        let cat = sec.at("category", default: none)
+        if cat != curcat {
+          curcat = cat
+          block(above: 0.75em, below: 0.2em,
+            text(font: sans, size: 10pt, weight: "medium", tracking: 0.1em, fill: rgb("#4a4238"))[#cat])
+        }
+      }
+      // With a category banner already carrying the heavier styling, a
+      // section (one manual) reads at the next level down -- the same visual
+      // step General Conference uses between a decade and its conferences.
+      block(above: 0.45em, below: 0.15em, pad(left: if has-categories { 0.6em } else { 0em }, {
+        text(font: sans, size: if has-categories { 9pt } else { 10pt },
+          weight: if has-categories { "regular" } else { "medium" }, tracking: 0.1em,
+          fill: if has-categories { notegray } else { rgb("#4a4238") })[#sec.label]
+      }))
       // an entry line, shared by dated and undated sections
       let line(key, title, byline, indent) = {
         let loc = cmOf(key)
@@ -601,7 +622,7 @@
         }
       } else {
         for t in sec.at("entries", default: ()) {
-          line(part.key + "|" + sec.key + "|" + t.slug, t.title, t.speaker, 1em)
+          line(part.key + "|" + sec.key + "|" + t.slug, t.title, t.speaker, if has-categories { 1.6em } else { 1em })
         }
       }
     }
@@ -853,8 +874,22 @@
 // conference does, because a magazine issue only means something under the
 // name of its magazine.
 #let render-collection-part(part) = {
+  // Bookmark-only category level, exactly the device decade-of() already
+  // uses for General Conference and magazines: a heading with nothing shown
+  // on the page (headings are globally invisible in this template -- see the
+  // `#show heading: none` near the top), so it only changes the outline.
+  // `base` shifts every level below it down by one, but only for a Part that
+  // actually has categories -- Scripture Helps and Magazines don't, and
+  // render at exactly the levels they always have.
+  let has-categories = part.sections.any(s => s.at("category", default: none) != none)
+  let base = if has-categories { 1 } else { 0 }
+  let curcat = none
   for (si, sec) in part.sections.enumerate() {
-    heading(level: 2)[#sec.label]
+    if has-categories {
+      let cat = sec.at("category", default: none)
+      if cat != curcat { curcat = cat; heading(level: 2)[#cat] }
+    }
+    heading(level: 2 + base)[#sec.label]
     v(if si == 0 { 0.10in } else { 0.6in })
     divider-line(sec.label, size: 14pt, tracking: 0.18em)
     v(0.34in)
@@ -862,18 +897,18 @@
       let curdecade = ""
       for iss in sec.issues {
         let dec = decade-of(iss.key)
-        if dec != curdecade { curdecade = dec; heading(level: 3)[#dec] }
-        heading(level: 4)[#iss.label]
+        if dec != curdecade { curdecade = dec; heading(level: 3 + base)[#dec] }
+        heading(level: 4 + base)[#iss.label]
         v(0.34in)
         divider-line(iss.label, size: 10.5pt, tracking: 0.2em)
         v(0.16in)
         for talk in iss.talks {
-          render-article(part.key + "|" + sec.key + "|" + iss.key + "|" + talk.slug, talk, level: 5)
+          render-article(part.key + "|" + sec.key + "|" + iss.key + "|" + talk.slug, talk, level: 5 + base)
         }
       }
     } else {
       for talk in sec.at("entries", default: ()) {
-        render-article(part.key + "|" + sec.key + "|" + talk.slug, talk, level: 3)
+        render-article(part.key + "|" + sec.key + "|" + talk.slug, talk, level: 3 + base)
       }
     }
   }

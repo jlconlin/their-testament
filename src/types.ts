@@ -198,6 +198,14 @@ export interface DocSection {
   issues?: DocConference[];
   /** undated entries, alphabetical (Topical Guide, Bible Dictionary, …) */
   entries?: DocTalk[];
+  /**
+   * Groups sibling sections in the outline and contents page -- bookmark-only,
+   * the same device decade-of() uses for magazines and General Conference.
+   * Manuals are the case that needs it: three dozen unrelated titles read as
+   * a wall, not a list. Undefined where a Part's sections don't need grouping
+   * (Scripture Helps has four; magazines already group by date).
+   */
+  category?: string;
 }
 
 export interface TagRef {

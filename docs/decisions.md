@@ -1534,3 +1534,43 @@ Verified against the real export: 29 whole-unit-fallback/empty-span warnings
 before, 7 after (all in the unexplained n+2/n+4 bucket, left alone on
 purpose) -- 22 highlights now show the reader's own words on the exact word
 they marked, not the whole verse.
+
+### Manuals grouped by category (2026-09-18)
+
+A flat, alphabetical list of thirty-some unrelated manuals reads as a wall,
+not a list -- "A Parent's Guide" next to "Book of Mormon Seminary Teacher
+Manual" next to "Doctrinal Mastery Core Document" tells a reader nothing
+about how these relate. There's no server-side taxonomy to defer to either:
+`/manual/<slug>` is flat, and a fetched manual page carries no category or
+breadcrumb of its own (confirmed: `/manual` itself 404s, and a manual's own
+`pageAttributes` has nothing like it). What's available is the manual's own
+slug, and a slug like `come-follow-me-for-...` or `*-seminary-*` already
+names what family it belongs to -- the same signal every other classifier in
+`scripture.ts` reads from a URI.
+
+`manualCategory()` pattern-matches the slug into one of six shelves --
+Come Follow Me, Seminary and Institute, Teachings of Presidents of the
+Church, Handbooks and Guides, Faith and Doctrine, For Youth and Families --
+checked in that order, first match wins. Order matters in one place
+specifically: the Seminary/Institute check has to run before the
+"teachings-" prefix check, or "Teachings and Doctrine of the Book of Mormon
+Teacher Manual" (a seminary manual) gets mistaken for one of the "Teachings
+of Presidents..." biographies on slug-prefix alone. Verified against every
+manual slug across both real annotation exports (62 total): zero landed in
+the "Other" catch-all.
+
+Rendered the same way General Conference's decades and magazines' decades
+already are: a bookmark-only heading (`show heading: none` makes every
+heading in this template invisible on the page; only an explicit divider
+line is ever printed) inserted between sections, with every level below it
+shifted down by one -- but only for a Part that actually sets `category` on
+its sections. Scripture Helps and Magazines never do, so `has-categories`
+is false for them and they render at exactly the levels they always have.
+The contents page gets the equivalent treatment with a visible banner.
+
+`DocSection.category` is optional and carried through unchanged from
+`SectionSpec` (`assembleCollection.ts`) to the doc model -- no change to how
+a Part's sections are counted, split across pieces, or coalesced back
+together after a merge; a category that straddles a split point folds back
+into one bookmark by the same `coalesceAdjacent` recursion that already
+handles a divided General Conference Part.

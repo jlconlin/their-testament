@@ -116,12 +116,12 @@ export async function assembleCollectionPart(annotations, sections, content, par
                     issues.push({ key: iss.key, label: iss.label, talks });
             }
             if (issues.length)
-                out.push({ key: sec.key, label: sec.label, issues });
+                out.push({ key: sec.key, label: sec.label, issues, category: sec.category });
         }
         else {
             const entries = await build(sec.docs ?? [], `${partKey}|${sec.key}`);
             if (entries.length)
-                out.push({ key: sec.key, label: sec.label, entries });
+                out.push({ key: sec.key, label: sec.label, entries, category: sec.category });
         }
     }
     return {

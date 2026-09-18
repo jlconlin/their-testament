@@ -294,6 +294,70 @@ export function classify(uri: string | undefined): Classification {
   return { scope: "out", reason: `source "${top}" not in current scope`, top };
 }
 
+/**
+ * Which shelf a manual belongs on -- derived from its own slug (the segment
+ * right after /manual/ in its URL), the same signal every other classifier
+ * in this file reads. There is no server-side taxonomy for manuals to defer
+ * to (unlike scripture books or GC dates): /manual/<slug> is flat, and a
+ * fetched manual page carries no category or breadcrumb of its own. Pattern
+ * matching the slug is what's available, so it's what's used here.
+ *
+ * Order matters: checked top to bottom, first match wins. The Seminary and
+ * Institute check has to run before the "teachings-" prefix, or "Teachings
+ * and Doctrine of the Book of Mormon Teacher Manual" (a seminary manual)
+ * gets mistaken for one of the "Teachings of Presidents..." biographies just
+ * because its slug happens to start the same way.
+ *
+ * Verified against every manual slug across two real annotation exports
+ * (62 total): zero landed in the "Other" catch-all.
+ */
+export const MANUAL_CATEGORY_ORDER = [
+  "Come, Follow Me",
+  "Seminary and Institute",
+  "Teachings of Presidents of the Church",
+  "Handbooks and Guides",
+  "Faith and Doctrine",
+  "For Youth and Families",
+  "Other Manuals and Guides",
+];
+
+const SEMINARY_RE = new RegExp(
+  [
+    "seminary", "institute", "doctrinal-mastery", "new-teacher-training",
+    "teaching-methods-skills", "scripture-study-skills", "charted-course-of-the-church",
+    "gospel-teaching-and-learning",
+    "(?:^|-)(?:student|teacher|teachers)-manual",
+  ].join("|"),
+);
+
+const HANDBOOK_SLUGS = new Set([
+  "general-handbook", "family-guidebook", "preach-my-gospel-a-guide-to-missionary-service",
+  "preach-my-gospel-2023", "on-holy-ground", "safeguards-for-using-technology",
+  "teaching-in-the-saviors-way-2022",
+]);
+
+const FAITH_SLUGS = new Set([
+  "gospel-principles", "gospel-topics", "true-to-the-faith", "doctrines-of-the-gospel-student-manual",
+  "the-gospel", "jesus-the-christ", "revelations-in-context", "the-testimony-of-the-prophet-joseph-smith",
+  "god-loveth-his-children",
+]);
+
+const YOUTH_SLUGS = new Set(["a-parents-guide", "endowed-from-on-high"]);
+
+export function manualCategory(slug: string): string {
+  if (slug.startsWith("come-follow-me")) return "Come, Follow Me";
+  // "Gospel Doctrine" was the adult Sunday class before Come, Follow Me --
+  // not a seminary/institute course, despite ending in "teachers-manual".
+  if (slug.includes("gospel-doctrine")) return "Handbooks and Guides";
+  if (SEMINARY_RE.test(slug)) return "Seminary and Institute";
+  if (slug.startsWith("teachings-")) return "Teachings of Presidents of the Church";
+  if (HANDBOOK_SLUGS.has(slug) || slug.startsWith("scouting-handbook")) return "Handbooks and Guides";
+  if (FAITH_SLUGS.has(slug) || slug.startsWith("scripture-helps")) return "Faith and Doctrine";
+  if (YOUTH_SLUGS.has(slug) || slug.startsWith("for-the-strength-of-youth") || slug.startsWith("my-foundation")
+      || slug.startsWith("succeed-in-school")) return "For Youth and Families";
+  return "Other Manuals and Guides";
+}
+
 /** "a-parents-guide" -> "A Parents Guide" -- a last resort for a missing index. */
 export function titleFromSlug(slug: string): string {
   const small = new Set(["a", "an", "and", "as", "at", "for", "from", "in", "of", "on", "or", "the", "to", "with"]);

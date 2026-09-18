@@ -14,7 +14,7 @@ import {
 import {
   classify, SCRIPTURE_PARTS, bookName, chapterWord, abbrev, titleFromSlug,
   HELPS_PART, MAGAZINES_PART, MANUALS_PART, HELP_COLLECTIONS, HELP_ORDER,
-  MAGAZINE_ORDER,
+  MAGAZINE_ORDER, manualCategory, MANUAL_CATEGORY_ORDER,
 } from "./scripture.ts";
 import type { Annotation, ContentSource, DocBook, DocPart } from "./types.ts";
 import type { Diag, UnplacedNote } from "./units.ts";
@@ -246,6 +246,7 @@ export async function assembleBook(
     manualSections.push({
       key: slug,
       label,
+      category: manualCategory(slug),
       docs: orderByManifest(uris, index, `/manual/${slug}/`).map((uri): DocSpec => ({
         slug: uri.slice(`/manual/${slug}/`.length).replace(/\//g, "-"),
         uri,
@@ -254,7 +255,12 @@ export async function assembleBook(
       })),
     });
   }
-  manualSections.sort((a, b) => a.label.localeCompare(b.label, "en", { sensitivity: "base" }));
+  // Category first (in the fixed reading order above), alphabetical within it
+  // -- three dozen unrelated titles read as a wall without the grouping, and
+  // as a shuffled mess without the second-level sort.
+  manualSections.sort((a, b) =>
+    MANUAL_CATEGORY_ORDER.indexOf(a.category!) - MANUAL_CATEGORY_ORDER.indexOf(b.category!) ||
+    a.label.localeCompare(b.label, "en", { sensitivity: "base" }));
 
   for (const [defn, sections] of [
     [HELPS_PART, helpSections],
