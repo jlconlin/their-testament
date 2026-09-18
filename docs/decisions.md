@@ -1474,3 +1474,43 @@ every reader tested so far tolerates it. Fixed by pre-registering the root
 `/Outlines` dictionary so every item, at every level, can point back to its
 true parent. Re-verified: the same 2,854-page merge now parses with no
 repair needed.
+
+### Highlights ending at the last word of a verse or paragraph (2026-09-18)
+
+Reported from the real book: highlights failing to locate with messages like
+"startOffset 33 > 32 words" -- always the *start*, always exactly one more
+than the unit's own word count, and reliably clustered wherever the
+highlighted words ran to the very end of a verse or paragraph.
+
+Traced against the real export: pulled the failing annotation IDs, matched
+each to its cached content, and hand-counted the verse text against the raw
+offset. Every one of 21 (of 29 total) failures shared the same shape --
+`startOffset` landing exactly one word past the unit's last word, whether the
+highlight was a single-word tap on that last word or a "from here to the end"
+selection starting there. It showed up identically with and without a leading
+verse number (General Conference paragraphs carry none), so it isn't the
+verse-number token being counted twice -- it looks like Gospel Library's own
+web client miscounting the boundary when a selection is extended to the
+literal end of a paragraph's text.
+
+There is only one sensible reading of "one word past the end of a unit that
+has no such word": the last word itself. `locate()` now clamps a startOffset
+of exactly `n + 1` down to `n`. A handful (6) show a gap of exactly 2, and one
+of exactly 4 -- rarer, and with no equally clean explanation for which word
+was actually meant, so those are left as an honest fallback rather than a
+guess.
+
+One more fixed alongside it, found by the same pass: Genesis 17:17 reported
+"bad endOffset 0" -- a highlight of just the first real word, raw `{start: 2,
+end: 1}`. The documented backward-selection fix ("Gospel Library sometimes
+stores endOffset = startOffset - 1") already existed, but ran *after* the
+leading-token shift, which had already carried this pair down to `{1, 0}` --
+past the point where the fix's own `endOffset > 0` guard could still catch
+it. Moved the check earlier, onto the raw offsets, where it belongs; behavior
+on every already-working case is unchanged (verified: the fix reduces to the
+same shifted result either way when neither offset lands on a boundary).
+
+Verified against the real export: 29 whole-unit-fallback/empty-span warnings
+before, 7 after (all in the unexplained n+2/n+4 bucket, left alone on
+purpose) -- 22 highlights now show the reader's own words on the exact word
+they marked, not the whole verse.
